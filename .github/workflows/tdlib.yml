@@ -14,6 +14,10 @@ on:
         description: "tdlib/td commit or tag to build (default: master)"
         required: false
         default: "master"
+      from_artifact_run_id:
+        description: "Reuse the tdlib archive from this run id instead of rebuilding"
+        required: false
+        default: ""
 
 permissions:
   contents: write
@@ -25,6 +29,7 @@ jobs:
 
     steps:
       - name: Free up disk space
+        if: inputs.from_artifact_run_id == ''
         # The runner starts with roughly 14 GB free; the SDK, NDK, OpenSSL and
         # four ABIs of TDLib object files need considerably more than that.
         run: |
@@ -42,17 +47,20 @@ jobs:
           echo "After:"; df -h / | tail -1
 
       - name: Set up Buildx
+        if: inputs.from_artifact_run_id == ''
         # A container-driver builder is what makes the GitHub Actions layer
         # cache below usable, so a re-run can skip the SDK and OpenSSL stages
         # instead of repeating ~15 minutes of work.
         uses: docker/setup-buildx-action@v3
 
       - name: Check out TDLib
+        if: inputs.from_artifact_run_id == ''
         # Only for the Dockerfile and the scripts it COPYs; the Dockerfile
         # clones the sources it actually compiles by itself.
         run: git clone --depth 1 https://github.com/tdlib/td.git td
 
       - name: Build TDLib for Android
+        if: inputs.from_artifact_run_id == ''
         env:
           COMMIT_HASH: ${{ inputs.commit_hash }}
           DOCKER_BUILDKIT: "1"
@@ -66,6 +74,7 @@ jobs:
             .
 
       - name: Upload as artifact
+        if: inputs.from_artifact_run_id == ''
         # Before verification, deliberately: an hour of build time should not be
         # thrown away by a bug in the check below.
         uses: actions/upload-artifact@v4
@@ -74,12 +83,28 @@ jobs:
           if-no-files-found: error
           path: tdlib-out/tdlib.zip
 
+      - name: Reuse an existing archive
+        if: inputs.from_artifact_run_id != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_ID: ${{ inputs.from_artifact_run_id }}
+        run: |
+          set -euo pipefail
+          gh run download "$RUN_ID" --name tdlib --dir "${GITHUB_WORKSPACE}/tdlib-out"
+          ls -la "${GITHUB_WORKSPACE}/tdlib-out"
+
       - name: Verify the archive
         id: verify
         env:
           COMMIT_HASH: ${{ inputs.commit_hash }}
         # Publishing a half-built archive would be worse than failing here: the
         # app would compile and then fail at runtime on a missing ABI.
+        #
+        # Nothing below pipes the listing into another command. `grep -q` and
+        # `head` both exit as soon as they have what they need, and the writer
+        # then dies of SIGPIPE, which fails the step under pipefail — that false
+        # "missing TdApi.java" cost two builds. Bash pattern matching needs no
+        # second process at all.
         run: |
           set -euo pipefail
           zip="${GITHUB_WORKSPACE}/tdlib-out/tdlib.zip"
@@ -92,24 +117,23 @@ jobs:
           listing=$(unzip -l "$zip")
 
           echo "Native libraries in the archive:"
-          # sed, not head: head closes the pipe early and the resulting SIGPIPE
-          # fails the step under pipefail.
-          printf '%s\n' "$listing" | grep 'libs/' | sed -n '1,40p'
+          grep 'libs/' <<<"$listing" || true
 
-          # armeabi-v7a and arm64-v8a are the ABIs real TV boxes ship; x86 and
+          # armeabi-v7a and arm64-v8a are what real TV boxes ship; x86 and
           # x86_64 only matter for emulators, so they are reported, not required.
           for abi in armeabi-v7a arm64-v8a; do
-            printf '%s\n' "$listing" | grep -q "libs/$abi/libtdjni.so" \
+            [[ "$listing" == *"libs/$abi/libtdjni.so"* ]] \
               || { echo "::error::missing libtdjni.so for $abi"; exit 1; }
           done
           for abi in x86 x86_64; do
-            printf '%s\n' "$listing" | grep -q "libs/$abi/libtdjni.so" \
+            [[ "$listing" == *"libs/$abi/libtdjni.so"* ]] \
               || echo "::warning::no libtdjni.so for $abi (emulator builds will not run)"
           done
 
-          printf '%s\n' "$listing" | grep -q 'org/drinkless/tdlib/TdApi.java' \
+          [[ "$listing" == *"org/drinkless/tdlib/TdApi.java"* ]] \
             || { echo "::error::missing TdApi.java"; exit 1; }
 
+          echo "All required ABIs and the Java bindings are present."
           echo "tag=tdlib-$(date -u +%Y%m%d)-${COMMIT_HASH:-master}" >> "$GITHUB_OUTPUT"
 
       - name: Publish release
