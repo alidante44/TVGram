@@ -1,0 +1,113 @@
+name: Build TDLib
+
+# TDLib is native code and Telegram's published Android archive is currently
+# not serving a real build, so we build it ourselves from source using TDLib's
+# own Dockerfile and publish the result as a release this repo can fetch.
+#
+# This is slow (an hour or more: OpenSSL and TDLib, each for four ABIs), so it
+# runs only on demand — not on every push.
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit_hash:
+        description: "tdlib/td commit or tag to build (default: master)"
+        required: false
+        default: "master"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+
+    steps:
+      - name: Free up disk space
+        # The runner starts with roughly 14 GB free; the SDK, NDK, OpenSSL and
+        # four ABIs of TDLib object files need considerably more than that.
+        run: |
+          echo "Before:"; df -h / | tail -1
+          sudo rm -rf \
+            /usr/share/dotnet \
+            /usr/local/lib/android \
+            /opt/ghc \
+            /usr/local/share/boost \
+            /usr/local/share/powershell \
+            /usr/share/swift \
+            "$AGENT_TOOLSDIRECTORY" || true
+          sudo apt-get clean
+          docker image prune -af || true
+          echo "After:"; df -h / | tail -1
+
+      - name: Check out TDLib
+        # Only for the Dockerfile and the scripts it COPYs; the Dockerfile
+        # clones the sources it actually compiles by itself.
+        run: git clone --depth 1 https://github.com/tdlib/td.git td
+
+      - name: Build TDLib for Android
+        env:
+          COMMIT_HASH: ${{ inputs.commit_hash }}
+          DOCKER_BUILDKIT: "1"
+        run: |
+          cd td/example/android
+          docker build \
+            --build-arg COMMIT_HASH="${COMMIT_HASH:-master}" \
+            --output "type=local,dest=${GITHUB_WORKSPACE}/tdlib-out" \
+            .
+
+      - name: Verify the archive
+        id: verify
+        # Publishing a half-built archive would be worse than failing here: the
+        # app would compile and then crash on a missing ABI at runtime.
+        run: |
+          set -euo pipefail
+          zip="${GITHUB_WORKSPACE}/tdlib-out/tdlib.zip"
+          [ -f "$zip" ] || { echo "::error::tdlib.zip was not produced"; exit 1; }
+
+          size=$(wc -c <"$zip")
+          echo "tdlib.zip is $size bytes"
+          [ "$size" -gt 10000000 ] || { echo "::error::tdlib.zip is only $size bytes"; exit 1; }
+
+          listing=$(unzip -l "$zip")
+          echo "$listing" | head -40
+
+          for abi in armeabi-v7a arm64-v8a x86 x86_64; do
+            echo "$listing" | grep -q "libs/$abi/libtdjni.so" \
+              || { echo "::error::missing libtdjni.so for $abi"; exit 1; }
+          done
+          echo "$listing" | grep -q "org/drinkless/tdlib/TdApi.java" \
+            || { echo "::error::missing TdApi.java"; exit 1; }
+
+          echo "tag=tdlib-$(date -u +%Y%m%d)-${COMMIT_HASH:0:7}" >> "$GITHUB_OUTPUT"
+        env:
+          COMMIT_HASH: ${{ inputs.commit_hash }}
+
+      - name: Upload as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tdlib
+          if-no-files-found: error
+          path: tdlib-out/tdlib.zip
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DATED_TAG: ${{ steps.verify.outputs.tag }}
+        run: |
+          set -euo pipefail
+          notes="TDLib for Android, built from tdlib/td@${{ inputs.commit_hash }} by .github/workflows/tdlib.yml.
+
+          Contains libtdjni.so for armeabi-v7a, arm64-v8a, x86 and x86_64 plus the
+          org.drinkless.tdlib Java bindings. scripts/fetch-tdlib.sh installs it."
+
+          # A dated tag keeps the history; tdlib-latest is the stable address
+          # scripts/fetch-tdlib.sh downloads from.
+          gh release create "$DATED_TAG" tdlib-out/tdlib.zip \
+            --title "$DATED_TAG" --notes "$notes" || \
+            gh release upload "$DATED_TAG" tdlib-out/tdlib.zip --clobber
+
+          gh release delete tdlib-latest --yes --cleanup-tag 2>/dev/null || true
+          gh release create tdlib-latest tdlib-out/tdlib.zip \
+            --title "TDLib (latest build)" --notes "$notes"

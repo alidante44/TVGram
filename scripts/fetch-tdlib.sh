@@ -23,6 +23,10 @@ WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 
 DEFAULT_URLS=(
+    # Built from source by .github/workflows/tdlib.yml, because Telegram's own
+    # archive below is not currently serving an Android build. The repository is
+    # public, so this needs no token.
+    "https://github.com/alidante44/TVGram/releases/download/tdlib-latest/tdlib.zip"
     "https://core.telegram.org/tdlib/tdlib.zip"
 )
 
@@ -78,8 +82,8 @@ done
         * or drop an AAR straight in:
               cp your-tdlib.aar tdlib/libs/tdlib.aar
 
-      To build one, follow TDLib's own Android instructions:
-        https://github.com/tdlib/td/tree/master/example/android
+      To build one here, run the \"Build TDLib\" workflow (Actions tab) — it uses
+      TDLib's own Dockerfile and publishes the result as the tdlib-latest release.
 
       Meanwhile the mock flavour needs none of this:
               ./gradlew assembleMockDebug"

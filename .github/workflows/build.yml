@@ -6,6 +6,9 @@ on:
   pull_request:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 concurrency:
   group: build-${{ github.ref }}
   cancel-in-progress: true
@@ -36,7 +39,7 @@ jobs:
             tdlib/src/main/jniLibs
             tdlib/src/main/java/org
           # Bump the suffix to force a re-download of the upstream archive.
-          key: tdlib-${{ runner.os }}-v1
+          key: tdlib-${{ runner.os }}-v2
 
       - name: Fetch TDLib
         id: fetch-tdlib
@@ -81,3 +84,29 @@ jobs:
           name: tvgram-apks
           if-no-files-found: error
           path: app/build/outputs/apk/**/*.apk
+
+      - name: Publish APKs to a release
+        # Action artifacts need a GitHub login to download and expire after 90
+        # days. A release asset is a plain public link that opens on the TV.
+        if: github.ref_name == github.event.repository.default_branch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          mkdir -p release
+          for apk in $(find app/build/outputs/apk -name '*.apk'); do
+            flavour=$(basename "$apk" .apk)
+            cp "$apk" "release/tvgram-${flavour#app-}.apk"
+          done
+          ls -la release
+
+          notes="Built from ${GITHUB_SHA:0:7} by .github/workflows/build.yml.
+
+          * \`tvgram-real-debug.apk\` — connects to your Telegram account.
+          * \`tvgram-mock-debug.apk\` — generated sample content, no account needed.
+
+          Install with \`adb install -r <file>\`, or sideload it onto the TV."
+
+          gh release delete app-latest --yes --cleanup-tag 2>/dev/null || true
+          gh release create app-latest release/*.apk \
+            --title "TVGram (latest build)" --notes "$notes"
