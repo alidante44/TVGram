@@ -111,6 +111,7 @@ jobs:
 
           Install with \`adb install -r <file>\`, or sideload it onto the TV."
 
-          gh release delete app-latest --yes --cleanup-tag 2>/dev/null || true
-          gh release create app-latest release/*.apk \
-            --title "TVGram (latest build)" --notes "$notes"
+          gh release delete app-latest --repo "$GITHUB_REPOSITORY" \
+            --yes --cleanup-tag 2>/dev/null || true
+          gh release create app-latest release/*.apk --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" --title "TVGram (latest build)" --notes "$notes"

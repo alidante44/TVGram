@@ -154,10 +154,15 @@ jobs:
 
           # A dated tag keeps the history; tdlib-latest is the stable address
           # scripts/fetch-tdlib.sh downloads from.
-          gh release create "$DATED_TAG" tdlib-out/tdlib.zip \
-            --title "$DATED_TAG" --notes "$notes" || \
-            gh release upload "$DATED_TAG" tdlib-out/tdlib.zip --clobber
+          # Every gh call needs --repo: this job may never have checked out this
+          # repository (the reuse path does not, and the build path only clones
+          # tdlib/td), so there is no git remote for gh to infer it from.
+          repo="$GITHUB_REPOSITORY"
 
-          gh release delete tdlib-latest --yes --cleanup-tag 2>/dev/null || true
-          gh release create tdlib-latest tdlib-out/tdlib.zip \
-            --title "TDLib (latest build)" --notes "$notes"
+          gh release create "$DATED_TAG" tdlib-out/tdlib.zip --repo "$repo" \
+            --target "$GITHUB_SHA" --title "$DATED_TAG" --notes "$notes" || \
+            gh release upload "$DATED_TAG" tdlib-out/tdlib.zip --repo "$repo" --clobber
+
+          gh release delete tdlib-latest --repo "$repo" --yes --cleanup-tag 2>/dev/null || true
+          gh release create tdlib-latest tdlib-out/tdlib.zip --repo "$repo" \
+            --target "$GITHUB_SHA" --title "TDLib (latest build)" --notes "$notes"
