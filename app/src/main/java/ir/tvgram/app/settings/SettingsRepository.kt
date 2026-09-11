@@ -12,6 +12,7 @@ import androidx.datastore.preferences.preferencesDataStore
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "tvgram-settings")
@@ -44,12 +45,33 @@ class SettingsRepository @Inject constructor(
             preferences[Keys.HARDWARE_DECODING] = updated.hardwareDecoding
             preferences[Keys.KEEP_SCREEN_ON] = updated.keepScreenOn
             preferences[Keys.MATCH_FRAME_RATE] = updated.matchFrameRate
+            preferences[Keys.PASSCODE_SALT] = updated.passcodeSalt
+            preferences[Keys.PASSCODE_HASH] = updated.passcodeHash
 
             // The chosen locale has to be readable before Hilt or coroutines are
             // available — Activity.attachBaseContext runs first — so it is also
             // mirrored into a plain SharedPreferences file.
             LocalePreferences.write(context, updated.language)
         }
+    }
+
+    /** Replaces the passcode. An empty code removes the lock. */
+    suspend fun setPasscode(passcode: String) {
+        if (passcode.isBlank()) {
+            update { it.copy(passcodeSalt = "", passcodeHash = "") }
+            return
+        }
+        val hashed = Passcode.hash(passcode)
+        update { it.copy(passcodeSalt = hashed.salt, passcodeHash = hashed.hash) }
+    }
+
+    suspend fun verifyPasscode(passcode: String): Boolean {
+        val current = settings.first()
+        if (!current.isLocked) return true
+        return Passcode.verify(
+            passcode,
+            Passcode.Hashed(salt = current.passcodeSalt, hash = current.passcodeHash),
+        )
     }
 
     private fun toSettings(preferences: Preferences): AppSettings {
@@ -76,6 +98,8 @@ class SettingsRepository @Inject constructor(
             hardwareDecoding = preferences[Keys.HARDWARE_DECODING] ?: defaults.hardwareDecoding,
             keepScreenOn = preferences[Keys.KEEP_SCREEN_ON] ?: defaults.keepScreenOn,
             matchFrameRate = preferences[Keys.MATCH_FRAME_RATE] ?: defaults.matchFrameRate,
+            passcodeSalt = preferences[Keys.PASSCODE_SALT] ?: defaults.passcodeSalt,
+            passcodeHash = preferences[Keys.PASSCODE_HASH] ?: defaults.passcodeHash,
         )
     }
 
@@ -99,5 +123,7 @@ class SettingsRepository @Inject constructor(
         val HARDWARE_DECODING = booleanPreferencesKey("hardware_decoding")
         val KEEP_SCREEN_ON = booleanPreferencesKey("keep_screen_on")
         val MATCH_FRAME_RATE = booleanPreferencesKey("match_frame_rate")
+        val PASSCODE_SALT = stringPreferencesKey("passcode_salt")
+        val PASSCODE_HASH = stringPreferencesKey("passcode_hash")
     }
 }

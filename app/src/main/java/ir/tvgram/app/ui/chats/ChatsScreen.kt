@@ -39,6 +39,7 @@ import ir.tvgram.app.ui.common.FocusableSurface
 import ir.tvgram.app.ui.common.LoadingBar
 import ir.tvgram.app.ui.common.TelegramImage
 import ir.tvgram.app.ui.common.TvIcon
+import ir.tvgram.app.ui.common.TvTextField
 import ir.tvgram.app.ui.theme.TvGramColors
 import ir.tvgram.app.ui.theme.TvGramDimens
 import ir.tvgram.app.util.Format
@@ -84,9 +85,11 @@ fun ChatsScreen(
 
     Row(modifier = modifier.fillMaxSize()) {
         ChatList(
-            chats = state.chats,
+            chats = state.visibleChats,
             selectedId = state.selectedChat?.id,
             isLoading = state.isLoadingChats,
+            query = state.query,
+            onSearch = viewModel::search,
             onSelect = viewModel::selectChat,
             modifier = Modifier
                 .width(380.dp)
@@ -141,11 +144,29 @@ private fun ChatList(
     chats: List<TgChat>,
     selectedId: Long?,
     isLoading: Boolean,
+    query: String,
+    onSearch: (String) -> Unit,
     onSelect: (TgChat) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier.padding(vertical = TvGramDimens.ScreenPaddingVertical)) {
+        TvTextField(
+            value = query,
+            onValueChange = onSearch,
+            placeholder = stringResource(R.string.chats_search_hint),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 4.dp),
+        )
         if (isLoading) LoadingBar(modifier = Modifier.padding(horizontal = 16.dp))
+        if (chats.isEmpty() && query.isNotBlank()) {
+            Text(
+                text = stringResource(R.string.search_no_results),
+                style = MaterialTheme.typography.bodyMedium,
+                color = TvGramColors.OnBackgroundMuted,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 20.dp),
+            )
+        }
         LazyColumn(
             contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),

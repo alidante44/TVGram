@@ -31,6 +31,10 @@
     <string name="folder_archived">آرشیو</string>
 
     <!-- Media grid -->
+    <string name="media_search_hint">جست‌وجو در مدیا…</string>
+    <string name="search_no_results">چیزی پیدا نشد</string>
+    <string name="chats_search_hint">جست‌وجو در چت‌ها…</string>
+    <string name="settings_search_hint">جست‌وجو در تنظیمات…</string>
     <string name="media_empty">در این چت رسانه‌ای پیدا نشد</string>
     <string name="media_loading">در حال بارگذاری…</string>
     <string name="media_retry">تلاش دوباره</string>
@@ -88,6 +92,29 @@
     <string name="chats_unsupported">پیام پشتیبانی‌نشده</string>
 
     <!-- Settings -->
+    <string name="lock_title">رمز برنامه</string>
+    <string name="lock_hint">برای باز کردن، رمز را وارد کنید.</string>
+    <string name="lock_placeholder">رمز عددی</string>
+    <string name="lock_wrong">رمز اشتباه است</string>
+    <string name="lock_unlock">باز کردن</string>
+    <string name="settings_passcode">رمز ورود به برنامه</string>
+    <string name="settings_passcode_on">فعال</string>
+    <string name="settings_passcode_off">غیرفعال</string>
+    <string name="settings_passcode_set">رمز تازه (خالی = حذف رمز)</string>
+    <string name="settings_passcode_warning">اگر رمز را فراموش کنی راه بازیابی نیست؛ باید داده‌های برنامه را پاک کنی و دوباره وارد شوی.</string>
+    <string name="settings_proxy">پروکسی</string>
+    <string name="settings_proxy_none">بدون پروکسی</string>
+    <string name="settings_proxy_add">افزودن پروکسی</string>
+    <string name="settings_proxy_server">سرور</string>
+    <string name="settings_proxy_port">پورت</string>
+    <string name="settings_proxy_secret">سکرت (MTProto)</string>
+    <string name="settings_proxy_username">نام کاربری</string>
+    <string name="settings_proxy_password">رمز عبور</string>
+    <string name="settings_proxy_type">نوع</string>
+    <string name="settings_proxy_disable">اتصال مستقیم (بدون پروکسی)</string>
+    <string name="settings_proxy_remove">حذف</string>
+    <string name="action_save">ذخیره</string>
+    <string name="action_close">بستن</string>
     <string name="settings_section_telegram">تنظیمات تلگرام</string>
     <string name="settings_section_tv">تنظیمات اندروید تی‌وی</string>
 

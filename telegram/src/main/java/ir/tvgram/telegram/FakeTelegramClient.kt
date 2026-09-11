@@ -20,6 +20,7 @@ import ir.tvgram.telegram.model.TgChat
 import ir.tvgram.telegram.model.TgFile
 import ir.tvgram.telegram.model.TgFolder
 import ir.tvgram.telegram.model.TgMediaItem
+import ir.tvgram.telegram.model.TgProxy
 import ir.tvgram.telegram.model.TgMessage
 import ir.tvgram.telegram.model.TgUser
 import java.io.ByteArrayOutputStream
@@ -89,15 +90,18 @@ class FakeTelegramClient(private val context: Context) : TelegramClient {
 
     // --- browsing ---------------------------------------------------------
 
+    // Same ordering as the real client: the account's own folders first, the
+    // derived splits after.
     override suspend fun folders(): List<TgFolder> =
-        BuiltInFolder.entries.map(TgFolder::forBuiltIn) + listOf(
-            TgFolder(id = 1, title = "Work"),
-            TgFolder(id = 2, title = "Music"),
-        )
+        listOf(TgFolder.forBuiltIn(BuiltInFolder.ALL)) +
+            listOf(TgFolder(id = 1, title = "Work"), TgFolder(id = 2, title = "Music")) +
+            BuiltInFolder.entries
+                .filter { it != BuiltInFolder.ALL }
+                .map(TgFolder::forBuiltIn)
 
     override suspend fun chats(folder: TgFolder, limit: Int): List<TgChat> {
         delay(120)
-        val all = (0 until 48).map { index -> fakeChat(index) }
+        val all = listOf(savedMessages()) + (0 until 48).map { index -> fakeChat(index) }
         return when (folder.builtIn) {
             BuiltInFolder.ALL, null -> all
             BuiltInFolder.PERSONAL -> all.filter { it.kind == ChatKind.PRIVATE }
@@ -109,16 +113,38 @@ class FakeTelegramClient(private val context: Context) : TelegramClient {
     }
 
     override suspend fun chat(chatId: Long): TgChat? =
-        (0 until 48).map(::fakeChat).firstOrNull { it.id == chatId }
+        (listOf(savedMessages()) + (0 until 48).map(::fakeChat)).firstOrNull { it.id == chatId }
+
+    private fun savedMessages(): TgChat = TgChat(
+        id = SAVED_MESSAGES_ID,
+        title = "Saved Messages",
+        kind = ChatKind.PRIVATE,
+        minithumbnail = gradientJpeg(40, 40, 999, quality = 60),
+        lastMessagePreview = "Everything you kept for later",
+    )
+
+    override suspend fun searchChats(query: String, limit: Int): List<TgChat> {
+        if (query.isBlank()) return emptyList()
+        return chats(TgFolder.forBuiltIn(BuiltInFolder.ALL), limit = 200)
+            .filter { it.title.contains(query, ignoreCase = true) }
+            .take(limit)
+    }
 
     override suspend fun mediaPage(
         chatId: Long,
         category: MediaCategory,
         fromMessageId: Long,
         limit: Int,
+        query: String,
     ): MediaPage {
         delay(220) // let the caller show its loading state
-        val all = mediaFor(chatId).filter { category == MediaCategory.ALL || it.category == category }
+        val all = mediaFor(chatId)
+            .filter { category == MediaCategory.ALL || it.category == category }
+            .filter {
+                query.isBlank() ||
+                    it.title.contains(query, ignoreCase = true) ||
+                    it.subtitle.orEmpty().contains(query, ignoreCase = true)
+            }
         val startIndex = if (fromMessageId == 0L) 0 else all.indexOfFirst { it.messageId == fromMessageId } + 1
         if (startIndex <= 0 && fromMessageId != 0L) return MediaPage(emptyList(), 0, false)
         val page = all.drop(startIndex).take(limit)
@@ -187,6 +213,31 @@ class FakeTelegramClient(private val context: Context) : TelegramClient {
     override suspend fun downloadFully(fileId: Int, priority: Int): String {
         downloads[fileId] = fakeSize(fileId)
         return writeLocalFile(fileId).absolutePath
+    }
+
+    // --- proxies ----------------------------------------------------------
+
+    private val fakeProxies = mutableListOf<TgProxy>()
+
+    override suspend fun proxies(): List<TgProxy> = fakeProxies.toList()
+
+    override suspend fun addProxy(proxy: TgProxy): TgProxy {
+        val added = proxy.copy(id = (fakeProxies.maxOfOrNull { it.id } ?: 0) + 1, isEnabled = true)
+        fakeProxies.replaceAll { it.copy(isEnabled = false) }
+        fakeProxies += added
+        return added
+    }
+
+    override suspend fun enableProxy(id: Int) {
+        fakeProxies.replaceAll { it.copy(isEnabled = it.id == id) }
+    }
+
+    override suspend fun disableProxies() {
+        fakeProxies.replaceAll { it.copy(isEnabled = false) }
+    }
+
+    override suspend fun removeProxy(id: Int) {
+        fakeProxies.removeAll { it.id == id }
     }
 
     // --- storage ----------------------------------------------------------
@@ -327,6 +378,7 @@ class FakeTelegramClient(private val context: Context) : TelegramClient {
     private val messageCache = HashMap<Long, List<TgMessage>>()
 
     private companion object {
+        const val SAVED_MESSAGES_ID = 1L
         val PEOPLE = listOf("Ali", "Sara", "Reza", "Mina", "Hossein", "Neda", "Kaveh", "Leila")
         val BOTS = listOf("MovieBot", "MusicDownloaderBot", "FileStoreBot", "SeriesBot")
         val GROUPS = listOf("Family", "Work chat", "Weekend plans", "Dev team")

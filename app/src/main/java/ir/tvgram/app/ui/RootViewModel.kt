@@ -14,6 +14,7 @@ import javax.inject.Inject
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -28,6 +29,17 @@ class RootViewModel @Inject constructor(
 
     val settings: StateFlow<AppSettings> = settingsRepository.settings
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AppSettings())
+
+    /**
+     * Null until the stored settings have actually been read.
+     *
+     * `settings` starts from defaults, and the default is "no passcode" — so
+     * reading the lock from it would flash the account on screen for a frame
+     * before the lock appeared. This stays null until the answer is real.
+     */
+    val isLocked: StateFlow<Boolean?> = settingsRepository.settings
+        .map { it.isLocked }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     init {
         viewModelScope.launch { connect() }

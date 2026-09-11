@@ -25,6 +25,10 @@
     <string name="folder_channels">Channels</string>
     <string name="folder_archived">Archived</string>
 
+    <string name="media_search_hint">Search media…</string>
+    <string name="search_no_results">Nothing found</string>
+    <string name="chats_search_hint">Search chats…</string>
+    <string name="settings_search_hint">Search settings…</string>
     <string name="media_empty">No media found in this chat</string>
     <string name="media_loading">Loading…</string>
     <string name="media_retry">Retry</string>
@@ -77,6 +81,29 @@
     <string name="chats_attachment_animation">GIF</string>
     <string name="chats_unsupported">Unsupported message</string>
 
+    <string name="lock_title">App passcode</string>
+    <string name="lock_hint">Enter your passcode to continue.</string>
+    <string name="lock_placeholder">Numeric passcode</string>
+    <string name="lock_wrong">Wrong passcode</string>
+    <string name="lock_unlock">Unlock</string>
+    <string name="settings_passcode">App passcode</string>
+    <string name="settings_passcode_on">On</string>
+    <string name="settings_passcode_off">Off</string>
+    <string name="settings_passcode_set">New passcode (empty removes it)</string>
+    <string name="settings_passcode_warning">There is no recovery. Forgetting it means clearing the app data and signing in again.</string>
+    <string name="settings_proxy">Proxy</string>
+    <string name="settings_proxy_none">No proxy</string>
+    <string name="settings_proxy_add">Add proxy</string>
+    <string name="settings_proxy_server">Server</string>
+    <string name="settings_proxy_port">Port</string>
+    <string name="settings_proxy_secret">Secret (MTProto)</string>
+    <string name="settings_proxy_username">Username</string>
+    <string name="settings_proxy_password">Password</string>
+    <string name="settings_proxy_type">Type</string>
+    <string name="settings_proxy_disable">Connect directly (no proxy)</string>
+    <string name="settings_proxy_remove">Remove</string>
+    <string name="action_save">Save</string>
+    <string name="action_close">Close</string>
     <string name="settings_section_telegram">Telegram settings</string>
     <string name="settings_section_tv">Android TV settings</string>
 

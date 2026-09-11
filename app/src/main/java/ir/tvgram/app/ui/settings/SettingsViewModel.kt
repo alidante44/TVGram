@@ -7,6 +7,7 @@ import ir.tvgram.app.settings.AppSettings
 import ir.tvgram.app.settings.SettingsRepository
 import ir.tvgram.telegram.TelegramClient
 import ir.tvgram.telegram.model.TgFolder
+import ir.tvgram.telegram.model.TgProxy
 import ir.tvgram.telegram.model.TgUser
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,7 +22,10 @@ data class SettingsUiState(
     val folders: List<TgFolder> = emptyList(),
     val cacheBytes: Long = 0,
     val isBusy: Boolean = false,
-)
+    val proxies: List<TgProxy> = emptyList(),
+) {
+    val activeProxy: TgProxy? get() = proxies.firstOrNull { it.isEnabled }
+}
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
@@ -45,7 +49,40 @@ class SettingsViewModel @Inject constructor(
                 user = runCatching { client.currentUser() }.getOrNull(),
                 folders = runCatching { client.folders() }.getOrElse { emptyList() },
                 cacheBytes = runCatching { client.cacheSize() }.getOrDefault(0L),
+                proxies = runCatching { client.proxies() }.getOrElse { emptyList() },
             )
+        }
+    }
+
+    fun setPasscode(passcode: String) {
+        viewModelScope.launch { settingsRepository.setPasscode(passcode) }
+    }
+
+    fun addProxy(proxy: TgProxy) {
+        viewModelScope.launch {
+            runCatching { client.addProxy(proxy) }
+            refresh()
+        }
+    }
+
+    fun enableProxy(id: Int) {
+        viewModelScope.launch {
+            runCatching { client.enableProxy(id) }
+            refresh()
+        }
+    }
+
+    fun disableProxies() {
+        viewModelScope.launch {
+            runCatching { client.disableProxies() }
+            refresh()
+        }
+    }
+
+    fun removeProxy(id: Int) {
+        viewModelScope.launch {
+            runCatching { client.removeProxy(id) }
+            refresh()
         }
     }
 
@@ -66,6 +103,7 @@ class SettingsViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(
                 isBusy = false,
                 cacheBytes = runCatching { client.cacheSize() }.getOrDefault(0L),
+                proxies = runCatching { client.proxies() }.getOrElse { emptyList() },
             )
         }
     }

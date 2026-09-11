@@ -9,6 +9,7 @@ import ir.tvgram.telegram.model.TelegramCredentials
 import ir.tvgram.telegram.model.TgChat
 import ir.tvgram.telegram.model.TgFile
 import ir.tvgram.telegram.model.TgFolder
+import ir.tvgram.telegram.model.TgProxy
 import ir.tvgram.telegram.model.TgUser
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
@@ -63,7 +64,12 @@ interface TelegramClient {
         category: MediaCategory,
         fromMessageId: Long,
         limit: Int,
+        /** Free text to match against captions and file names; empty means all. */
+        query: String = "",
     ): MediaPage
+
+    /** Chats whose name matches [query], across the account rather than a folder. */
+    suspend fun searchChats(query: String, limit: Int = 50): List<TgChat>
 
     /** One page of chat history, newest first. */
     suspend fun messagePage(chatId: Long, fromMessageId: Long, limit: Int): MessagePage
@@ -97,6 +103,20 @@ interface TelegramClient {
 
     /** Downloads the whole file and returns its local path. */
     suspend fun downloadFully(fileId: Int, priority: Int = DEFAULT_PRIORITY): String
+
+    // --- proxies ----------------------------------------------------------
+
+    suspend fun proxies(): List<TgProxy>
+
+    /** Adds a proxy and immediately routes through it. */
+    suspend fun addProxy(proxy: TgProxy): TgProxy?
+
+    suspend fun enableProxy(id: Int)
+
+    /** Goes back to connecting directly. */
+    suspend fun disableProxies()
+
+    suspend fun removeProxy(id: Int)
 
     // --- storage ----------------------------------------------------------
 

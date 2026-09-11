@@ -183,6 +183,23 @@ sealed interface AuthState {
 
 enum class ConnectionState { WAITING_FOR_NETWORK, CONNECTING_TO_PROXY, CONNECTING, UPDATING, READY }
 
+/** The proxy kinds Telegram itself supports. */
+enum class ProxyKind { MTPROTO, SOCKS5, HTTP }
+
+data class TgProxy(
+    val id: Int,
+    val server: String,
+    val port: Int,
+    val kind: ProxyKind,
+    val isEnabled: Boolean = false,
+    /** MTProto uses a secret; SOCKS5 and HTTP use a username and password. */
+    val secret: String = "",
+    val username: String = "",
+    val password: String = "",
+) {
+    val label: String get() = "${kind.name.lowercase()} · $server:$port"
+}
+
 data class TelegramCredentials(val apiId: Int, val apiHash: String) {
     val isUsable: Boolean get() = apiId != 0 && apiHash.isNotBlank()
 }

@@ -12,6 +12,7 @@ import ir.tvgram.telegram.model.TgChat
 import ir.tvgram.telegram.model.TgFile
 import ir.tvgram.telegram.model.TgFolder
 import ir.tvgram.telegram.model.TgMediaItem
+import ir.tvgram.telegram.model.TgProxy
 import ir.tvgram.telegram.model.TgUser
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -130,11 +131,14 @@ class MediaFeedTest {
 
         private var calls = 0
 
+        override suspend fun searchChats(query: String, limit: Int): List<TgChat> = emptyList()
+
         override suspend fun mediaPage(
             chatId: Long,
             category: MediaCategory,
             fromMessageId: Long,
             limit: Int,
+            query: String,
         ): MediaPage {
             if (failFirst && calls++ == 0) throw IllegalStateException("boom")
 
@@ -184,6 +188,11 @@ class MediaFeedTest {
         override suspend fun downloadedPrefixSize(fileId: Int, offset: Long): Long = 0
         override suspend fun cancelDownload(fileId: Int) = Unit
         override suspend fun downloadFully(fileId: Int, priority: Int): String = ""
+        override suspend fun proxies(): List<TgProxy> = emptyList()
+        override suspend fun addProxy(proxy: TgProxy): TgProxy? = null
+        override suspend fun enableProxy(id: Int) = Unit
+        override suspend fun disableProxies() = Unit
+        override suspend fun removeProxy(id: Int) = Unit
         override suspend fun cacheSize(): Long = 0
         override suspend fun clearCache() = Unit
         override suspend fun setCacheLimit(bytes: Long) = Unit

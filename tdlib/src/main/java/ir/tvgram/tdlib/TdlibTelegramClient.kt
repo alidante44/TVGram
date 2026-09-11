@@ -9,6 +9,7 @@ import ir.tvgram.telegram.model.ChatKind
 import ir.tvgram.telegram.model.ConnectionState
 import ir.tvgram.telegram.model.MediaCategory
 import ir.tvgram.telegram.model.MediaPage
+import ir.tvgram.telegram.model.ProxyKind
 import ir.tvgram.telegram.model.MessagePage
 import ir.tvgram.telegram.model.TelegramCredentials
 import ir.tvgram.telegram.model.TelegramException
@@ -16,6 +17,7 @@ import ir.tvgram.telegram.model.TgChat
 import ir.tvgram.telegram.model.TgFile
 import ir.tvgram.telegram.model.TgFolder
 import ir.tvgram.telegram.model.TgMediaItem
+import ir.tvgram.telegram.model.TgProxy
 import ir.tvgram.telegram.model.TgMessage
 import ir.tvgram.telegram.model.TgUser
 import java.io.File
@@ -30,6 +32,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -74,6 +77,10 @@ class TdlibTelegramClient(
     private var credentials: TelegramCredentials = TelegramCredentials(0, "")
     private var pumpStarted = false
     private var pendingPhoneNumber: String = ""
+
+    /** Saved Messages is the chat whose id equals your own user id. */
+    @Volatile
+    private var myUserId: Long = 0
 
     // --- session ----------------------------------------------------------
 
@@ -136,17 +143,40 @@ class TdlibTelegramClient(
         chatFolders.value = emptyList()
     }
 
-    override suspend fun currentUser(): TgUser? =
-        TdMappers.user(connection.sendOrNull<TdApi.User>(TdApi.GetMe()))
+    override suspend fun currentUser(): TgUser? {
+        val user = connection.sendOrNull<TdApi.User>(TdApi.GetMe())
+        user?.let { myUserId = it.id }
+        return TdMappers.user(user)
+    }
+
+    private suspend fun savedMessagesChatId(): Long {
+        if (myUserId == 0L) currentUser()
+        return myUserId
+    }
 
     // --- browsing ---------------------------------------------------------
 
     override suspend fun folders(): List<TgFolder> {
-        val builtIns = BuiltInFolder.entries.map(TgFolder::forBuiltIn)
+        // Telegram announces the account's own folders in an update shortly
+        // after sync rather than on request, so asking too early used to return
+        // only the derived ones. Give it a moment before falling back.
+        if (chatFolders.value.isEmpty()) {
+            withTimeoutOrNull(FOLDER_SYNC_TIMEOUT_MS) {
+                chatFolders.first { it.isNotEmpty() }
+            }
+        }
+
         val custom = chatFolders.value.map { info ->
             TgFolder(id = info.id, title = folderTitle(info))
         }
-        return builtIns + custom
+
+        // The viewer's own arrangement comes first; the derived splits are a
+        // fallback for accounts that have never made folders.
+        return listOf(TgFolder.forBuiltIn(BuiltInFolder.ALL)) +
+            custom +
+            BuiltInFolder.entries
+                .filter { it != BuiltInFolder.ALL }
+                .map(TgFolder::forBuiltIn)
     }
 
     override suspend fun chats(folder: TgFolder, limit: Int): List<TgChat> {
@@ -155,7 +185,19 @@ class TdlibTelegramClient(
             null -> TdApi.ChatListFolder().apply { chatFolderId = folder.id }
             else -> TdApi.ChatListMain()
         }
-        val ids = loadChatIds(list, limit)
+        val ids = loadChatIds(list, limit).toMutableList()
+
+        // Saved Messages holds a lot of what people keep to watch later, and it
+        // is easy to lose in a long list, so it is pulled to the top of the
+        // places it belongs rather than left wherever it sorts.
+        if (folder.builtIn == BuiltInFolder.ALL || folder.builtIn == BuiltInFolder.PERSONAL) {
+            val saved = savedMessagesChatId()
+            if (saved != 0L) {
+                ids.remove(saved)
+                ids.add(0, saved)
+            }
+        }
+
         val resolved = ids.mapNotNull { id -> chatCache[id] ?: connection.sendOrNull<TdApi.Chat>(chatQuery(id)) }
         warmUpUsers(resolved)
 
@@ -177,16 +219,36 @@ class TdlibTelegramClient(
         return TdMappers.chat(chat, ::isBot, chatId in archivedChatIds)
     }
 
+    override suspend fun searchChats(query: String, limit: Int): List<TgChat> {
+        if (query.isBlank()) return emptyList()
+        // Local first so already-synced chats answer instantly, then the server
+        // for everything else the account can see.
+        val local = connection.sendOrNull<TdApi.Chats>(
+            TdApi.SearchChats().apply { this.query = query; this.limit = limit },
+        )?.chatIds?.toList().orEmpty()
+        val remote = connection.sendOrNull<TdApi.Chats>(
+            TdApi.SearchChatsOnServer().apply { this.query = query; this.limit = limit },
+        )?.chatIds?.toList().orEmpty()
+
+        val ids = (local + remote).distinct().take(limit)
+        val resolved = ids.mapNotNull { id ->
+            chatCache[id] ?: connection.sendOrNull<TdApi.Chat>(chatQuery(id))
+        }
+        warmUpUsers(resolved)
+        return resolved.map { TdMappers.chat(it, ::isBot, it.id in archivedChatIds) }
+    }
+
     override suspend fun mediaPage(
         chatId: Long,
         category: MediaCategory,
         fromMessageId: Long,
         limit: Int,
+        query: String,
     ): MediaPage {
         val result = connection.send<TdApi.FoundChatMessages>(
             TdApi.SearchChatMessages().apply {
                 this.chatId = chatId
-                query = ""
+                this.query = query
                 this.fromMessageId = fromMessageId
                 offset = 0
                 this.limit = limit
@@ -291,6 +353,65 @@ class TdlibTelegramClient(
         return downloaded.localPath
             ?: fileUpdates(fileId).first { it.isDownloadingCompleted }.localPath
             ?: throw TelegramException(0, "file $fileId has no local path after download")
+    }
+
+    // --- proxies ----------------------------------------------------------
+
+    override suspend fun proxies(): List<TgProxy> =
+        connection.sendOrNull<TdApi.Proxies>(TdApi.GetProxies())
+            ?.proxies?.mapNotNull(::toProxy).orEmpty()
+
+    override suspend fun addProxy(proxy: TgProxy): TgProxy? {
+        val type: TdApi.ProxyType = when (proxy.kind) {
+            ProxyKind.MTPROTO -> TdApi.ProxyTypeMtproto().apply { secret = proxy.secret }
+            ProxyKind.SOCKS5 -> TdApi.ProxyTypeSocks5().apply {
+                username = proxy.username
+                password = proxy.password
+            }
+
+            ProxyKind.HTTP -> TdApi.ProxyTypeHttp().apply {
+                username = proxy.username
+                password = proxy.password
+                httpOnly = false
+            }
+        }
+        val added = connection.sendOrNull<TdApi.Proxy>(
+            TdApi.AddProxy().apply {
+                server = proxy.server
+                port = proxy.port
+                enable = true
+                this.type = type
+            },
+        )
+        return added?.let(::toProxy)
+    }
+
+    override suspend fun enableProxy(id: Int) {
+        connection.sendOrNull<TdApi.Ok>(TdApi.EnableProxy().apply { proxyId = id })
+    }
+
+    override suspend fun disableProxies() {
+        connection.sendOrNull<TdApi.Ok>(TdApi.DisableProxy())
+    }
+
+    override suspend fun removeProxy(id: Int) {
+        connection.sendOrNull<TdApi.Ok>(TdApi.RemoveProxy().apply { proxyId = id })
+    }
+
+    private fun toProxy(proxy: TdApi.Proxy): TgProxy? {
+        val kind = when (proxy.type) {
+            is TdApi.ProxyTypeMtproto -> ProxyKind.MTPROTO
+            is TdApi.ProxyTypeSocks5 -> ProxyKind.SOCKS5
+            is TdApi.ProxyTypeHttp -> ProxyKind.HTTP
+            else -> return null
+        }
+        return TgProxy(
+            id = proxy.id,
+            server = proxy.server.orEmpty(),
+            port = proxy.port,
+            kind = kind,
+            isEnabled = proxy.isEnabled,
+        )
     }
 
     // --- storage ----------------------------------------------------------
@@ -529,5 +650,6 @@ class TdlibTelegramClient(
     private companion object {
         const val APP_VERSION = "TVGram 0.1.0"
         const val MAX_CHAT_LOAD_ROUNDS = 8
+        const val FOLDER_SYNC_TIMEOUT_MS = 4_000L
     }
 }

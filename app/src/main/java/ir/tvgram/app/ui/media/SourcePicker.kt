@@ -46,6 +46,7 @@ import ir.tvgram.app.ui.common.FocusableSurface
 import ir.tvgram.app.ui.common.LoadingBar
 import ir.tvgram.app.ui.common.TelegramImage
 import ir.tvgram.app.ui.common.TvIcon
+import ir.tvgram.app.ui.common.TvTextField
 import ir.tvgram.app.ui.theme.TvGramColors
 import ir.tvgram.telegram.model.BuiltInFolder
 import ir.tvgram.telegram.model.ChatKind
@@ -108,6 +109,7 @@ fun SourcePanel(
     source: SourceState,
     onFolderSelected: (TgFolder) -> Unit,
     onChatSelected: (TgChat) -> Unit,
+    onSearch: (String) -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -206,17 +208,23 @@ fun SourcePanel(
                                 onClick = { showingChats = false },
                             )
                         }
-                        if (source.chats.isEmpty() && !source.isLoadingChats) {
+                        if (source.visibleChats.isEmpty() && !source.isLoadingChats && !source.isSearching) {
                             item {
                                 Text(
-                                    text = stringResource(R.string.source_empty_folder),
+                                    text = stringResource(
+                                    if (source.chatQuery.isBlank()) {
+                                        R.string.source_empty_folder
+                                    } else {
+                                        R.string.search_no_results
+                                    },
+                                ),
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = TvGramColors.OnBackgroundMuted,
                                     modifier = Modifier.padding(20.dp),
                                 )
                             }
                         }
-                        items(source.chats, key = { it.id }) { chat ->
+                        items(source.visibleChats, key = { it.id }) { chat ->
                             SourceRow(
                                 title = chat.title,
                                 subtitle = chat.lastMessagePreview,

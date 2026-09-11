@@ -14,6 +14,8 @@ import ir.tvgram.telegram.model.TgChat
 import ir.tvgram.telegram.model.TgFolder
 import ir.tvgram.telegram.model.TgMediaItem
 import javax.inject.Inject
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -30,7 +32,14 @@ data class SourceState(
     val chats: List<TgChat> = emptyList(),
     val selectedChat: TgChat? = null,
     val isLoadingChats: Boolean = false,
-)
+    /** What the viewer typed into the picker's search box. */
+    val chatQuery: String = "",
+    val chatResults: List<TgChat> = emptyList(),
+    val isSearching: Boolean = false,
+) {
+    /** Search results replace the folder's chats while a query is active. */
+    val visibleChats: List<TgChat> get() = if (chatQuery.isBlank()) chats else chatResults
+}
 
 @HiltViewModel
 class MediaViewModel @Inject constructor(
@@ -44,6 +53,11 @@ class MediaViewModel @Inject constructor(
 
     private val _category = MutableStateFlow(MediaCategory.ALL)
     val category: StateFlow<MediaCategory> = _category.asStateFlow()
+
+    private val _mediaQuery = MutableStateFlow("")
+    val mediaQuery: StateFlow<String> = _mediaQuery.asStateFlow()
+
+    private var chatSearchJob: Job? = null
 
     private val feed = MutableStateFlow<MediaFeed?>(null)
 
@@ -90,7 +104,11 @@ class MediaViewModel @Inject constructor(
     }
 
     fun selectChat(chat: TgChat) {
-        _source.value = _source.value.copy(selectedChat = chat)
+        _source.value = _source.value.copy(
+            selectedChat = chat,
+            chatQuery = "",
+            chatResults = emptyList(),
+        )
         viewModelScope.launch {
             settingsRepository.update { it.copy(lastChatId = chat.id) }
         }
@@ -100,6 +118,29 @@ class MediaViewModel @Inject constructor(
     fun selectCategory(category: MediaCategory) {
         if (_category.value == category) return
         _category.value = category
+        restartFeed()
+    }
+
+    /** Searches every chat the account can see, not just the open folder. */
+    fun searchChats(query: String) {
+        _source.value = _source.value.copy(chatQuery = query)
+        chatSearchJob?.cancel()
+        if (query.isBlank()) {
+            _source.value = _source.value.copy(chatResults = emptyList(), isSearching = false)
+            return
+        }
+        chatSearchJob = viewModelScope.launch {
+            _source.value = _source.value.copy(isSearching = true)
+            delay(SEARCH_DEBOUNCE_MS)
+            val results = runCatching { client.searchChats(query) }.getOrElse { emptyList() }
+            _source.value = _source.value.copy(chatResults = results, isSearching = false)
+        }
+    }
+
+    /** Narrows the grid to media matching the text, within the chosen chat. */
+    fun searchMedia(query: String) {
+        if (_mediaQuery.value == query) return
+        _mediaQuery.value = query
         restartFeed()
     }
 
@@ -127,6 +168,12 @@ class MediaViewModel @Inject constructor(
             scope = viewModelScope,
             chatId = chat.id,
             category = _category.value,
+            query = _mediaQuery.value,
         ).also { it.loadMore() }
+    }
+
+    private companion object {
+        /** Long enough that typing on a remote does not fire a search per letter. */
+        const val SEARCH_DEBOUNCE_MS = 350L
     }
 }

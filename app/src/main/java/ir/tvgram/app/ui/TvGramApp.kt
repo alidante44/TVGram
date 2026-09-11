@@ -24,6 +24,7 @@ import ir.tvgram.app.R
 import ir.tvgram.app.settings.RailSide
 import ir.tvgram.app.ui.chats.ChatsScreen
 import ir.tvgram.app.ui.common.CenteredMessage
+import ir.tvgram.app.ui.lock.LockScreen
 import ir.tvgram.app.ui.login.CredentialsScreen
 import ir.tvgram.app.ui.login.LoginScreen
 import ir.tvgram.app.ui.media.MediaScreen
@@ -41,23 +42,36 @@ fun TvGramApp(viewModel: RootViewModel = hiltViewModel()) {
     val authState by viewModel.authState.collectAsStateWithLifecycle()
     val connectionState by viewModel.connectionState.collectAsStateWithLifecycle()
     val settings by viewModel.settings.collectAsStateWithLifecycle()
+    val isLocked by viewModel.isLocked.collectAsStateWithLifecycle()
+
+    // Deliberately not rememberSaveable: if the activity is recreated the
+    // passcode is asked for again, which is the whole point of it.
+    var unlocked by remember { mutableStateOf(false) }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(TvGramColors.Background),
     ) {
-        when (val state = authState) {
-            is AuthState.NeedsCredentials -> CredentialsScreen(onSave = viewModel::saveCredentials)
+        when {
+            isLocked == null -> CenteredMessage(text = stringResource(R.string.login_connecting))
 
-            is AuthState.Initializing -> CenteredMessage(text = stringResource(R.string.login_connecting))
+            // The lock comes before the account, not after it.
+            isLocked == true && !unlocked -> LockScreen(onUnlocked = { unlocked = true })
 
-            is AuthState.Ready -> MainShell(
-                railSide = settings.railSide,
-                connectionState = connectionState,
-            )
+            else -> when (val state = authState) {
+                is AuthState.NeedsCredentials -> CredentialsScreen(onSave = viewModel::saveCredentials)
 
-            else -> LoginScreen(state = state)
+                is AuthState.Initializing ->
+                    CenteredMessage(text = stringResource(R.string.login_connecting))
+
+                is AuthState.Ready -> MainShell(
+                    railSide = settings.railSide,
+                    connectionState = connectionState,
+                )
+
+                else -> LoginScreen(state = state)
+            }
         }
     }
 }

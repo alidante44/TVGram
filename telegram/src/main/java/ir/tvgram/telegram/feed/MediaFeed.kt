@@ -39,6 +39,8 @@ class MediaFeed(
     val chatId: Long,
     val category: MediaCategory,
     private val pageSize: Int = DEFAULT_PAGE_SIZE,
+    /** Narrows the feed to media matching this text; empty means everything. */
+    private val query: String = "",
 ) {
     private val _state = MutableStateFlow(MediaFeedState())
     val state: StateFlow<MediaFeedState> = _state.asStateFlow()
@@ -134,7 +136,7 @@ class MediaFeed(
         }
 
         suspend fun fetch() {
-            val page = client.mediaPage(chatId, category, fromMessageId, pageSize)
+            val page = client.mediaPage(chatId, category, fromMessageId, pageSize, query)
             buffer += page.items
             fromMessageId = page.nextFromMessageId
             if (!page.hasMore || page.items.isEmpty()) exhausted = true

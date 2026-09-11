@@ -4,7 +4,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -28,6 +30,7 @@ import ir.tvgram.app.R
 import ir.tvgram.app.settings.AppLanguage
 import ir.tvgram.app.ui.common.CenteredMessage
 import ir.tvgram.app.ui.common.LoadingBar
+import ir.tvgram.app.ui.common.TvTextField
 import ir.tvgram.app.ui.theme.TvGramDimens
 import ir.tvgram.telegram.model.TgMediaItem
 import java.util.Locale
@@ -47,6 +50,7 @@ fun MediaScreen(
     val category by viewModel.category.collectAsStateWithLifecycle()
     val feed by viewModel.feedState.collectAsStateWithLifecycle()
     val settings by viewModel.settings.collectAsStateWithLifecycle()
+    val mediaQuery by viewModel.mediaQuery.collectAsStateWithLifecycle()
 
     var pickerOpen by remember { mutableStateOf(false) }
     val gridState = rememberLazyGridState()
@@ -96,11 +100,19 @@ fun MediaScreen(
                     onSelect = viewModel::selectCategory,
                     modifier = Modifier.align(AbsoluteAlignment.CenterLeft),
                 )
-                SourceButton(
-                    source = source,
-                    onClick = { pickerOpen = true },
+                Row(
                     modifier = Modifier.align(AbsoluteAlignment.CenterRight),
-                )
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    TvTextField(
+                        value = mediaQuery,
+                        onValueChange = viewModel::searchMedia,
+                        placeholder = stringResource(R.string.media_search_hint),
+                        modifier = Modifier.width(260.dp),
+                    )
+                    SourceButton(source = source, onClick = { pickerOpen = true })
+                }
             }
 
             if (feed.isLoading) {
@@ -157,6 +169,7 @@ fun MediaScreen(
                 source = source,
                 onFolderSelected = viewModel::selectFolder,
                 onChatSelected = viewModel::selectChat,
+                onSearch = viewModel::searchChats,
                 onDismiss = { pickerOpen = false },
                 modifier = Modifier.align(Alignment.TopEnd),
             )

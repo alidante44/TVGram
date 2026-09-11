@@ -14,6 +14,8 @@ import ir.tvgram.telegram.model.TgChat
 import ir.tvgram.telegram.model.TgFolder
 import ir.tvgram.telegram.model.TgMediaItem
 import javax.inject.Inject
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -28,7 +30,13 @@ data class ChatsUiState(
     val chats: List<TgChat> = emptyList(),
     val selectedChat: TgChat? = null,
     val isLoadingChats: Boolean = true,
-)
+    /** What the viewer typed into the chat search box. */
+    val query: String = "",
+    val results: List<TgChat> = emptyList(),
+) {
+    /** Search results stand in for the chat list while a query is active. */
+    val visibleChats: List<TgChat> get() = if (query.isBlank()) chats else results
+}
 
 @HiltViewModel
 class ChatsViewModel @Inject constructor(
@@ -41,6 +49,7 @@ class ChatsViewModel @Inject constructor(
     val state: StateFlow<ChatsUiState> = _state.asStateFlow()
 
     private val feed = MutableStateFlow<MessageFeed?>(null)
+    private var searchJob: Job? = null
 
     val messages: StateFlow<MessageFeedState> = feed
         .flatMapLatest { it?.state ?: flowOf(MessageFeedState()) }
@@ -63,6 +72,28 @@ class ChatsViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Filters the loaded chats straight away so typing feels immediate, then
+     * asks Telegram as well — the account usually has far more chats than the
+     * list has loaded.
+     */
+    fun search(query: String) {
+        searchJob?.cancel()
+        val local = if (query.isBlank()) {
+            emptyList()
+        } else {
+            _state.value.chats.filter { it.title.contains(query, ignoreCase = true) }
+        }
+        _state.value = _state.value.copy(query = query, results = local)
+        if (query.isBlank()) return
+
+        searchJob = viewModelScope.launch {
+            delay(SEARCH_DEBOUNCE_MS)
+            val remote = runCatching { client.searchChats(query) }.getOrElse { emptyList() }
+            _state.value = _state.value.copy(results = (local + remote).distinctBy { it.id })
+        }
+    }
+
     fun selectChat(chat: TgChat) {
         if (_state.value.selectedChat?.id == chat.id) return
         _state.value = _state.value.copy(selectedChat = chat)
@@ -81,5 +112,10 @@ class ChatsViewModel @Inject constructor(
     fun openMedia(item: TgMediaItem) {
         val playable = messages.value.messages.mapNotNull { it.media }
         queue.submit(playable.ifEmpty { listOf(item) }, item)
+    }
+
+    private companion object {
+        /** Long enough that typing on a remote does not fire a search per letter. */
+        const val SEARCH_DEBOUNCE_MS = 350L
     }
 }

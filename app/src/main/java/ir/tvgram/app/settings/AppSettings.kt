@@ -43,7 +43,14 @@ data class AppSettings(
     val hardwareDecoding: Boolean = true,
     val keepScreenOn: Boolean = true,
     val matchFrameRate: Boolean = true,
+
+    // --- Lock ---
+    /** Empty when no passcode is set; only ever a salted hash, never the code. */
+    val passcodeSalt: String = "",
+    val passcodeHash: String = "",
 ) {
+    val isLocked: Boolean get() = passcodeSalt.isNotEmpty() && passcodeHash.isNotEmpty()
+
     companion object {
         /** Matches TgFolder.forBuiltIn(BuiltInFolder.ALL).id. */
         const val ALL_FOLDER_ID: Int = -1
