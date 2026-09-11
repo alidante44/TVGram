@@ -84,6 +84,13 @@ fun LoginScreen(
                     color = TvGramColors.Danger,
                 )
 
+                // Telegram reports "waiting for a phone number" first and the QR
+                // link arrives a moment later. Showing the phone form in that gap
+                // makes the app look like it wants typing when it does not.
+                state is AuthState.WaitPhoneNumber && !usePhone -> QrPending(
+                    onUsePhone = { usePhone = true },
+                )
+
                 state is AuthState.WaitPhoneNumber || usePhone -> PhoneStep(
                     onSubmit = viewModel::submitPhone,
                     onUseQr = {
@@ -109,6 +116,34 @@ fun LoginScreen(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun QrPending(onUsePhone: () -> Unit) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        Text(
+            text = stringResource(R.string.login_qr_preparing),
+            style = MaterialTheme.typography.titleLarge,
+            color = TvGramColors.OnBackground,
+        )
+        Box(
+            modifier = Modifier
+                .size(320.dp)
+                .background(TvGramColors.SurfaceElevated, RoundedCornerShape(12.dp)),
+            contentAlignment = Alignment.Center,
+        ) {
+            LoadingBar(modifier = Modifier.width(220.dp))
+        }
+        Text(
+            text = stringResource(R.string.login_qr_hint),
+            style = MaterialTheme.typography.bodyMedium,
+            color = TvGramColors.OnBackgroundMuted,
+        )
+        TvButton(text = stringResource(R.string.login_use_phone), onClick = onUsePhone)
     }
 }
 

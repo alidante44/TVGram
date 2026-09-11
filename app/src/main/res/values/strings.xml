@@ -40,6 +40,7 @@
     <string name="login_title">ورود به تلگرام</string>
     <string name="login_qr_title">با موبایل اسکن کنید</string>
     <string name="login_qr_hint">تلگرام ← تنظیمات ← دستگاه‌ها ← اتصال دستگاه رومیزی</string>
+    <string name="login_qr_preparing">در حال آماده‌سازی کد QR…</string>
     <string name="login_qr_refresh">کد تازه</string>
     <string name="login_use_phone">ورود با شمارهٔ تلفن</string>
     <string name="login_use_qr">ورود با کد QR</string>

@@ -33,6 +33,7 @@
     <string name="login_title">Sign in to Telegram</string>
     <string name="login_qr_title">Scan with your phone</string>
     <string name="login_qr_hint">Telegram → Settings → Devices → Link Desktop Device</string>
+    <string name="login_qr_preparing">Preparing your QR code…</string>
     <string name="login_qr_refresh">New code</string>
     <string name="login_use_phone">Sign in with phone number</string>
     <string name="login_use_qr">Sign in with QR code</string>
