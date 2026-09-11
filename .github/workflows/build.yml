@@ -62,11 +62,30 @@ jobs:
         env:
           TELEGRAM_API_ID: ${{ secrets.TELEGRAM_API_ID }}
           TELEGRAM_API_HASH: ${{ secrets.TELEGRAM_API_HASH }}
+        # Never echo the values — only whether they arrived and look right. A
+        # misspelled secret name is silent otherwise: the build succeeds and the
+        # APK asks the user for credentials it was supposed to already have.
         run: |
+          set -euo pipefail
           {
             echo "TELEGRAM_API_ID=${TELEGRAM_API_ID}"
             echo "TELEGRAM_API_HASH=${TELEGRAM_API_HASH}"
           } > local.properties
+
+          if [ -z "${TELEGRAM_API_ID}" ] || [ -z "${TELEGRAM_API_HASH}" ]; then
+            echo "::warning::No Telegram credentials in secrets — the app will ask for them on first launch."
+            echo "baked=false" >> "$GITHUB_OUTPUT"
+          elif ! [[ "${TELEGRAM_API_ID}" =~ ^[0-9]+$ ]]; then
+            echo "::error::TELEGRAM_API_ID is not a number (${#TELEGRAM_API_ID} characters)."
+            exit 1
+          elif [ "${#TELEGRAM_API_HASH}" -ne 32 ]; then
+            echo "::error::TELEGRAM_API_HASH should be 32 characters, got ${#TELEGRAM_API_HASH}."
+            exit 1
+          else
+            echo "Credentials present: api_id has ${#TELEGRAM_API_ID} digits, api_hash has ${#TELEGRAM_API_HASH} characters."
+            echo "baked=true" >> "$GITHUB_OUTPUT"
+          fi
+        id: credentials
 
       - name: Unit tests
         run: ./gradlew --no-daemon :telegram:test :app:testMockDebugUnitTest
