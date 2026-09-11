@@ -454,7 +454,10 @@ class TdlibTelegramClient(
     private suspend fun warmUpUsers(chats: Collection<TdApi.Chat>) {
         chats.asSequence()
             .mapNotNull { (it.type as? TdApi.ChatTypePrivate)?.userId }
-            .filter { it !in users }
+            // containsKey, not `in`: on a ConcurrentHashMap `in` resolves to
+            // containsValue, which would compare a user id against User objects
+            // and so re-fetch every user on every load.
+            .filter { !users.containsKey(it) }
             .distinct()
             .toList()
             .forEach { userId ->
