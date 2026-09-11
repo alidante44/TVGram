@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Default (Persian) strings. English lives in values-en/. -->
+<resources>
+    <string name="app_name">تی‌وی‌گرام</string>
+
+    <!-- Navigation rail -->
+    <string name="nav_media">مدیا</string>
+    <string name="nav_chats">چت‌ها</string>
+    <string name="nav_settings">تنظیمات</string>
+
+    <!-- Media categories -->
+    <string name="category_all">همه</string>
+    <string name="category_video">ویدیوها</string>
+    <string name="category_photo">عکس‌ها</string>
+    <string name="category_audio">صداها</string>
+    <string name="category_other">متفرقه</string>
+
+    <!-- Source picker -->
+    <string name="source_pick_folder">انتخاب پوشه</string>
+    <string name="source_pick_chat">انتخاب چت</string>
+    <string name="source_none">منبعی انتخاب نشده</string>
+    <string name="source_back_to_folders">بازگشت به پوشه‌ها</string>
+    <string name="source_empty_folder">این پوشه چتی ندارد</string>
+
+    <!-- Built-in folders -->
+    <string name="folder_all">همهٔ چت‌ها</string>
+    <string name="folder_personal">شخصی</string>
+    <string name="folder_bots">ربات‌ها</string>
+    <string name="folder_groups">گروه‌ها</string>
+    <string name="folder_channels">کانال‌ها</string>
+    <string name="folder_archived">آرشیو</string>
+
+    <!-- Media grid -->
+    <string name="media_empty">در این چت رسانه‌ای پیدا نشد</string>
+    <string name="media_loading">در حال بارگذاری…</string>
+    <string name="media_retry">تلاش دوباره</string>
+    <string name="media_unnamed">بدون نام</string>
+
+    <!-- Login -->
+    <string name="login_title">ورود به تلگرام</string>
+    <string name="login_qr_title">با موبایل اسکن کنید</string>
+    <string name="login_qr_hint">تلگرام ← تنظیمات ← دستگاه‌ها ← اتصال دستگاه رومیزی</string>
+    <string name="login_qr_refresh">کد تازه</string>
+    <string name="login_use_phone">ورود با شمارهٔ تلفن</string>
+    <string name="login_use_qr">ورود با کد QR</string>
+    <string name="login_phone_title">شمارهٔ تلفن</string>
+    <string name="login_phone_hint">‎+98…</string>
+    <string name="login_code_title">کد تأیید</string>
+    <string name="login_code_hint">کدی که تلگرام فرستاد</string>
+    <string name="login_password_title">رمز دومرحله‌ای</string>
+    <string name="login_password_hint">رمز عبور اکانت</string>
+    <string name="login_continue">ادامه</string>
+    <string name="login_connecting">در حال اتصال…</string>
+    <string name="login_waiting">لطفاً صبر کنید…</string>
+
+    <!-- Credentials setup -->
+    <string name="setup_title">کلیدهای API لازم است</string>
+    <string name="setup_body">این نسخه بدون api_id و api_hash کار نمی‌کند. آن‌ها را از my.telegram.org بگیرید و در local.properties بگذارید یا همین‌جا وارد کنید.</string>
+    <string name="setup_api_id">api_id</string>
+    <string name="setup_api_hash">api_hash</string>
+    <string name="setup_save">ذخیره و اتصال</string>
+
+    <!-- Player -->
+    <string name="player_play">پخش</string>
+    <string name="player_buffering">در حال بافر…</string>
+    <string name="player_downloading">در حال دریافت %1$d%%</string>
+    <string name="player_error">پخش ممکن نشد</string>
+    <string name="player_subtitle_off">خاموش</string>
+
+    <!-- Chats screen -->
+    <string name="chats_empty">چتی برای نمایش نیست</string>
+    <string name="chats_messages_empty">پیامی نیست</string>
+    <string name="chats_attachment_video">ویدیو</string>
+    <string name="chats_attachment_photo">عکس</string>
+    <string name="chats_attachment_audio">صدا</string>
+    <string name="chats_attachment_voice">پیام صوتی</string>
+    <string name="chats_attachment_document">فایل</string>
+    <string name="chats_attachment_animation">گیف</string>
+    <string name="chats_unsupported">پیام پشتیبانی‌نشده</string>
+
+    <!-- Settings -->
+    <string name="settings_section_telegram">تنظیمات تلگرام</string>
+    <string name="settings_section_tv">تنظیمات اندروید تی‌وی</string>
+
+    <string name="settings_account">اکانت</string>
+    <string name="settings_logout">خروج از اکانت</string>
+    <string name="settings_logout_confirm">از اکانت خارج می‌شوی؟ همهٔ داده‌های محلی پاک می‌شود.</string>
+    <string name="settings_default_folder">پوشهٔ پیش‌فرض</string>
+    <string name="settings_include_archived">نمایش چت‌های آرشیوشده</string>
+    <string name="settings_cache_limit">سقف حافظهٔ نهان</string>
+    <string name="settings_clear_cache">پاک کردن حافظهٔ نهان</string>
+    <string name="settings_cache_size">حجم فعلی: %1$s</string>
+    <string name="settings_download_priority">اولویت دانلود</string>
+    <string name="settings_index_depth">عمق ایندکس مدیا در هر چت</string>
+
+    <string name="settings_language">زبان</string>
+    <string name="settings_language_fa">فارسی</string>
+    <string name="settings_language_en">English</string>
+    <string name="settings_language_system">زبان سیستم</string>
+    <string name="settings_rail_side">موقعیت نوار کناری</string>
+    <string name="settings_rail_start">ابتدای صفحه</string>
+    <string name="settings_rail_left">سمت چپ</string>
+    <string name="settings_rail_right">سمت راست</string>
+    <string name="settings_grid_columns">تعداد ستون‌های گرید</string>
+    <string name="settings_autoplay_next">پخش خودکار مورد بعدی</string>
+    <string name="settings_resume_playback">ادامه از محل قطع‌شده</string>
+    <string name="settings_seek_step">گام جست‌وجو</string>
+    <string name="settings_seek_step_value">%1$d ثانیه</string>
+    <string name="settings_preferred_audio">زبان ترجیحی صدا</string>
+    <string name="settings_preferred_subtitle">زبان ترجیحی زیرنویس</string>
+    <string name="settings_hardware_decoding">دیکد سخت‌افزاری</string>
+    <string name="settings_keep_screen_on">روشن نگه داشتن صفحه هنگام پخش</string>
+    <string name="settings_match_frame_rate">تطبیق نرخ نوسازی صفحه با ویدیو</string>
+    <string name="settings_about">دربارهٔ برنامه</string>
+    <string name="settings_version">نسخهٔ %1$s</string>
+    <string name="settings_restart_needed">برای اعمال، برنامه دوباره باز می‌شود</string>
+
+    <!-- Generic -->
+    <string name="error_generic">خطا: %1$s</string>
+    <string name="error_no_connection">اتصال اینترنت برقرار نیست</string>
+    <string name="state_connecting">در حال اتصال…</string>
+    <string name="state_updating">در حال به‌روزرسانی…</string>
+</resources>

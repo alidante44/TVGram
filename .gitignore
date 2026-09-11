@@ -1,0 +1,17 @@
+*.iml
+.gradle/
+.idea/
+.kotlin/
+build/
+local.properties
+captures/
+.externalNativeBuild/
+.cxx/
+*.apk
+*.aab
+*.keystore
+
+# TDLib is downloaded by scripts/fetch-tdlib.sh, never committed.
+tdlib/libs/
+tdlib/src/main/jniLibs/
+tdlib/src/main/java/org/drinkless/

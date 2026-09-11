@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 320x180 banner shown on the Android TV home screen. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="320dp"
+    android:height="180dp"
+    android:viewportWidth="320"
+    android:viewportHeight="180">
+
+    <path android:pathData="M0,0h320v180h-320z">
+        <aapt:attr xmlns:aapt="http://schemas.android.com/aapt" name="android:fillColor">
+            <gradient
+                android:startX="0" android:startY="0"
+                android:endX="320" android:endY="180"
+                android:type="linear">
+                <item android:offset="0" android:color="#FF0B2A45" />
+                <item android:offset="1" android:color="#FF07090E" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Paper-plane glyph -->
+    <path
+        android:fillColor="#FF3FA9F5"
+        android:pathData="M44,86 L120,58 L112,124 L94,106 L76,118 L78,98 Z" />
+    <path
+        android:fillColor="#FF8FD3FF"
+        android:pathData="M78,98 L112,124 L120,58 Z" />
+
+    <!-- Screen glyph -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:fillAlpha="0.92"
+        android:pathData="M152,60 h124 a8,8 0 0 1 8,8 v66 a8,8 0 0 1 -8,8 h-124 a8,8 0 0 1 -8,-8 v-66 a8,8 0 0 1 8,-8 z M152,72 v58 h124 v-58 z" />
+    <path
+        android:fillColor="#FF3FA9F5"
+        android:pathData="M200,84 L232,101 L200,118 Z" />
+</vector>

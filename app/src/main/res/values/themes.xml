@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Compose owns every pixel; the platform theme only has to get out of the
+         way and paint the window black while the first frame is composed. -->
+    <style name="Theme.TVGram" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/tv_background</item>
+        <item name="android:colorBackground">@color/tv_background</item>
+        <item name="android:windowActionBar">false</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+</resources>
