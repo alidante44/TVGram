@@ -21,6 +21,9 @@ on:
 
 permissions:
   contents: write
+  # gh run download reads another run's artifacts; an explicit permissions block
+  # replaces the defaults, so this has to be named.
+  actions: read
 
 jobs:
   build:
@@ -90,7 +93,9 @@ jobs:
           RUN_ID: ${{ inputs.from_artifact_run_id }}
         run: |
           set -euo pipefail
-          gh run download "$RUN_ID" --name tdlib --dir "${GITHUB_WORKSPACE}/tdlib-out"
+          # No checkout happens on this path, so gh cannot infer the repository.
+          gh run download "$RUN_ID" --repo "$GITHUB_REPOSITORY" \
+            --name tdlib --dir "${GITHUB_WORKSPACE}/tdlib-out"
           ls -la "${GITHUB_WORKSPACE}/tdlib-out"
 
       - name: Verify the archive
