@@ -61,6 +61,12 @@ fun MediaScreen(
         }
     }
 
+    // Switching chat or category replaces the feed; without this the grid would
+    // stay scrolled where the previous chat left it.
+    LaunchedEffect(source.selectedChat?.id, category) {
+        gridState.scrollToItem(0)
+    }
+
     // Fetch the next page a row early, so scrolling never stops at a spinner.
     LaunchedEffect(gridState, settings.gridColumns) {
         snapshotFlow {

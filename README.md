@@ -42,21 +42,39 @@ TELEGRAM_API_HASH=0123456789abcdef0123456789abcdef
 
 A build without them still installs — it asks for them once on first launch.
 
-### 2. Fetch TDLib
+### 2. Install TDLib
 
-The real backend talks to Telegram through TDLib, which ships as native code.
-The script downloads Telegram's own Android build and drops it into `:tdlib`:
+The real backend talks to Telegram through TDLib, which ships as native code and
+is therefore never committed. The script installs it into `:tdlib`:
 
 ```bash
 ./scripts/fetch-tdlib.sh
 ```
 
-If your network blocks `core.telegram.org`, download `tdlib.zip` elsewhere and
-point the script at it:
+It downloads Telegram's published Android archive and accepts either layout that
+archive has used (a ready-made `.aar`, or loose `libtdjni.so` files plus the
+`org.drinkless.tdlib` Java sources).
+
+**Heads-up:** as of this writing `https://core.telegram.org/tdlib/tdlib.zip`
+answers with a 262-byte file rather than an Android build, so the script stops
+and prints what it actually received. Until that URL serves a real build again,
+supply one yourself — either way round:
 
 ```bash
+# an archive you downloaded or built elsewhere
 TDLIB_URL=file:///path/to/tdlib.zip ./scripts/fetch-tdlib.sh
+
+# or an AAR, dropped straight in
+cp your-tdlib.aar tdlib/libs/tdlib.aar
 ```
+
+To build one from source, use TDLib's own Android instructions — they are
+maintained upstream and produce exactly the archive this script expects:
+<https://github.com/tdlib/td/tree/master/example/android>. TVGram needs TDLib
+1.8.14 or newer.
+
+None of this affects the `mock` flavour, which builds and runs with no TDLib at
+all.
 
 ### 3. Build and install
 

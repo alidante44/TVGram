@@ -1,40 +1,97 @@
 #!/usr/bin/env bash
 #
-# Fetches the official TDLib build for Android published by Telegram and drops
-# it into the :tdlib module.
+# Installs TDLib's Android build into the :tdlib module.
 #
-# Telegram ships one archive containing the JNI bindings plus prebuilt native
-# libraries for every Android ABI. Two layouts have been used over time, so we
-# accept either:
+# TDLib is native code, so it is never committed — it is fetched here and
+# git-ignored. Two upstream layouts are accepted:
 #
 #   1. an .aar        -> copied to tdlib/libs/tdlib.aar
 #   2. loose files    -> libtdjni.so per ABI  -> tdlib/src/main/jniLibs/<abi>/
 #                        org/drinkless/tdlib/*.java -> tdlib/src/main/java/
 #
-# Nothing produced here is committed; see .gitignore.
+# Set TDLIB_URL to override the source, including a local file:
+#
+#   TDLIB_URL=file:///path/to/tdlib.zip ./scripts/fetch-tdlib.sh
+#
+# If you already have an AAR, you can skip this script entirely and drop it at
+# tdlib/libs/tdlib.aar yourself.
 set -euo pipefail
 
-TDLIB_URL="${TDLIB_URL:-https://core.telegram.org/tdlib/tdlib.zip}"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 MODULE="$ROOT/tdlib"
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 
-info()  { printf '\033[1;34m==>\033[0m %s\n' "$*"; }
-fail()  { printf '\033[1;31mERROR:\033[0m %s\n' "$*" >&2; exit 1; }
+DEFAULT_URLS=(
+    "https://core.telegram.org/tdlib/tdlib.zip"
+)
 
-info "Downloading $TDLIB_URL"
-if ! curl -fSL --retry 4 --retry-delay 2 -o "$WORK/tdlib.zip" "$TDLIB_URL"; then
-    fail "could not download TDLib from $TDLIB_URL
-      If your network blocks core.telegram.org, download tdlib.zip elsewhere and
-      re-run with TDLIB_URL=file:///path/to/tdlib.zip, or build the mock flavour:
-          ./gradlew assembleMockDebug"
-fi
+info() { printf '\033[1;34m==>\033[0m %s\n' "$*"; }
+warn() { printf '\033[1;33mWARN:\033[0m %s\n' "$*" >&2; }
+fail() { printf '\033[1;31mERROR:\033[0m %s\n' "$*" >&2; exit 1; }
+
+describe_archive() {
+    local archive="$1"
+    printf '\n--- what %s actually contains ---\n' "$(basename "$archive")" >&2
+    printf 'size: %s bytes\n' "$(wc -c <"$archive")" >&2
+    file "$archive" >&2 || true
+    if unzip -l "$archive" >/dev/null 2>&1; then
+        unzip -l "$archive" >&2
+    else
+        head -c 400 "$archive" >&2
+        printf '\n' >&2
+    fi
+    printf -- '--- end ---\n\n' >&2
+}
+
+# --- download -------------------------------------------------------------
+
+urls=("${DEFAULT_URLS[@]}")
+[[ -n "${TDLIB_URL:-}" ]] && urls=("$TDLIB_URL")
+
+archive="$WORK/tdlib.zip"
+downloaded=""
+for url in "${urls[@]}"; do
+    info "Downloading $url"
+    if curl -fSL --retry 4 --retry-delay 2 -o "$archive" "$url"; then
+        # A real TDLib build is tens of megabytes; anything tiny is a notice
+        # page or a placeholder, not the library.
+        size="$(wc -c <"$archive")"
+        if [[ "$size" -lt 1000000 ]]; then
+            warn "$url returned only $size bytes — that is not a TDLib build."
+            describe_archive "$archive"
+            continue
+        fi
+        downloaded="$url"
+        break
+    fi
+    warn "could not download $url"
+done
+
+[[ -n "$downloaded" ]] || fail "no usable TDLib archive could be downloaded.
+
+      Telegram's published archive is not serving an Android build right now.
+      Supply one yourself and re-run, either way round:
+
+        * point this script at a local archive:
+              TDLIB_URL=file:///path/to/tdlib.zip ./scripts/fetch-tdlib.sh
+        * or drop an AAR straight in:
+              cp your-tdlib.aar tdlib/libs/tdlib.aar
+
+      To build one, follow TDLib's own Android instructions:
+        https://github.com/tdlib/td/tree/master/example/android
+
+      Meanwhile the mock flavour needs none of this:
+              ./gradlew assembleMockDebug"
 
 info "Extracting"
-unzip -q "$WORK/tdlib.zip" -d "$WORK/extracted"
+unzip -q "$archive" -d "$WORK/extracted" || {
+    describe_archive "$archive"
+    fail "the downloaded file is not a zip archive."
+}
 
 # --- layout 1: a ready-made AAR -------------------------------------------
+
 aar="$(find "$WORK/extracted" -name '*.aar' -print -quit)"
 if [[ -n "$aar" ]]; then
     mkdir -p "$MODULE/libs"
@@ -44,9 +101,13 @@ if [[ -n "$aar" ]]; then
 fi
 
 # --- layout 2: loose native libs + Java sources ----------------------------
+
 tdapi="$(find "$WORK/extracted" -path '*org/drinkless/*' -name 'TdApi.java' -print -quit)"
-[[ -n "$tdapi" ]] || fail "archive contains neither an .aar nor org/drinkless/.../TdApi.java.
-      Layout changed upstream — inspect tdlib.zip and update scripts/fetch-tdlib.sh."
+if [[ -z "$tdapi" ]]; then
+    describe_archive "$archive"
+    fail "archive contains neither an .aar nor org/drinkless/.../TdApi.java.
+      The layout listed above is not one this script knows how to install."
+fi
 
 # The java root is the directory holding the 'org' package folder.
 java_root="${tdapi%%/org/drinkless/*}"
