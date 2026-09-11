@@ -86,9 +86,13 @@ jobs:
           path: app/build/outputs/apk/**/*.apk
 
       - name: Publish APKs to a release
-        # Action artifacts need a GitHub login to download and expire after 90
-        # days. A release asset is a plain public link that opens on the TV.
-        if: github.ref_name == github.event.repository.default_branch
+        # Only when the real flavour exists. app-latest replaces whatever was
+        # there before, so publishing a mock-only build would quietly downgrade
+        # a working release to sample data — and "latest" has to mean the real
+        # app. Mock-only builds are still available as the artifact above.
+        if: >-
+          github.ref_name == github.event.repository.default_branch &&
+          steps.tdlib.outputs.available == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -102,7 +106,7 @@ jobs:
 
           notes="Built from ${GITHUB_SHA:0:7} by .github/workflows/build.yml.
 
-          * \`tvgram-real-debug.apk\` — connects to your Telegram account.
+          * \`tvgram-real-debug.apk\` — connects to your Telegram account. This is the one you want.
           * \`tvgram-mock-debug.apk\` — generated sample content, no account needed.
 
           Install with \`adb install -r <file>\`, or sideload it onto the TV."
