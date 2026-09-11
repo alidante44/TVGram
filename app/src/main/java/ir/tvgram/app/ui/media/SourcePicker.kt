@@ -18,7 +18,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Folder
-import androidx.compose.material.icons.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -188,7 +188,7 @@ fun SourcePanel(
                             title = stringResource(R.string.source_back_to_folders),
                             selected = false,
                             leading = { tint ->
-                                TvIcon(Icons.Filled.KeyboardArrowLeft, null, tint = tint, size = 20.dp)
+                                TvIcon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, null, tint = tint, size = 20.dp)
                             },
                             onClick = { showingChats = false },
                         )

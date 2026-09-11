@@ -11,7 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Chat
+import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.VideoLibrary
 import androidx.compose.runtime.Composable
@@ -122,7 +122,7 @@ private fun RailItem(
 
 private fun Destination.icon(): ImageVector = when (this) {
     Destination.MEDIA -> Icons.Filled.VideoLibrary
-    Destination.CHATS -> Icons.Filled.Chat
+    Destination.CHATS -> Icons.AutoMirrored.Filled.Chat
     Destination.SETTINGS -> Icons.Filled.Settings
 }
 
