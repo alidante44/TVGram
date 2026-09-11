@@ -37,6 +37,8 @@ import androidx.compose.ui.input.key.type
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import ir.tvgram.app.R
@@ -120,114 +122,126 @@ fun SourcePanel(
         runCatching { focusRequester.requestFocus() }
     }
 
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .background(TvGramColors.Scrim),
-        contentAlignment = Alignment.TopEnd,
+    // A dialog owns its own window, and that is what keeps the D-pad inside the
+    // list. As a plain Box the focus escaped into the media grid behind, so the
+    // second time the picker was opened it scrolled the grid instead of the chats.
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            dismissOnBackPress = true,
+            dismissOnClickOutside = true,
+        ),
     ) {
-        Column(
-            modifier = Modifier
-                .padding(24.dp)
-                .width(460.dp)
-                .background(TvGramColors.Surface, RoundedCornerShape(14.dp))
-                .padding(vertical = 16.dp)
-                .onKeyEvent { event ->
-                    if (event.type != KeyEventType.KeyUp) return@onKeyEvent false
-                    when (event.key) {
-                        Key.Back, Key.Escape -> {
-                            if (showingChats) showingChats = false else onDismiss()
-                            true
-                        }
-
-                        else -> false
-                    }
-                },
+        Box(
+            modifier = modifier
+                .fillMaxSize()
+                .background(TvGramColors.Scrim),
+            contentAlignment = Alignment.TopEnd,
         ) {
-            Text(
-                text = stringResource(
-                    if (showingChats) R.string.source_pick_chat else R.string.source_pick_folder,
-                ),
-                style = MaterialTheme.typography.titleMedium,
-                color = TvGramColors.OnBackground,
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
-            )
+            Column(
+                modifier = Modifier
+                    .padding(24.dp)
+                    .width(460.dp)
+                    .background(TvGramColors.Surface, RoundedCornerShape(14.dp))
+                    .padding(vertical = 16.dp)
+                    .onKeyEvent { event ->
+                        if (event.type != KeyEventType.KeyUp) return@onKeyEvent false
+                        when (event.key) {
+                            Key.Back, Key.Escape -> {
+                                if (showingChats) showingChats = false else onDismiss()
+                                true
+                            }
 
-            if (source.isLoadingChats && showingChats) {
-                LoadingBar(modifier = Modifier.padding(horizontal = 20.dp))
-            }
-
-            LazyColumn(
-                state = listState,
-                modifier = Modifier.heightIn(max = 520.dp),
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                    horizontal = 12.dp,
-                    vertical = 8.dp,
-                ),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
+                            else -> false
+                        }
+                    },
             ) {
-                if (!showingChats) {
-                    items(source.folders, key = { it.id }) { folder ->
-                        SourceRow(
-                            title = folder.displayTitle(),
-                            selected = folder.id == source.selectedFolder?.id,
-                            modifier = if (folder.id == source.selectedFolder?.id) {
-                                Modifier.focusRequester(focusRequester)
-                            } else {
-                                Modifier
-                            },
-                            onClick = {
-                                onFolderSelected(folder)
-                                showingChats = true
-                            },
-                        )
-                    }
-                } else {
-                    item {
-                        SourceRow(
-                            title = stringResource(R.string.source_back_to_folders),
-                            selected = false,
-                            leading = { tint ->
-                                TvIcon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, null, tint = tint, size = 20.dp)
-                            },
-                            onClick = { showingChats = false },
-                        )
-                    }
-                    if (source.chats.isEmpty() && !source.isLoadingChats) {
-                        item {
-                            Text(
-                                text = stringResource(R.string.source_empty_folder),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = TvGramColors.OnBackgroundMuted,
-                                modifier = Modifier.padding(20.dp),
+                Text(
+                    text = stringResource(
+                        if (showingChats) R.string.source_pick_chat else R.string.source_pick_folder,
+                    ),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = TvGramColors.OnBackground,
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+                )
+
+                if (source.isLoadingChats && showingChats) {
+                    LoadingBar(modifier = Modifier.padding(horizontal = 20.dp))
+                }
+
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.heightIn(max = 520.dp),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                        horizontal = 12.dp,
+                        vertical = 8.dp,
+                    ),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    if (!showingChats) {
+                        items(source.folders, key = { it.id }) { folder ->
+                            SourceRow(
+                                title = folder.displayTitle(),
+                                selected = folder.id == source.selectedFolder?.id,
+                                modifier = if (folder.id == source.selectedFolder?.id) {
+                                    Modifier.focusRequester(focusRequester)
+                                } else {
+                                    Modifier
+                                },
+                                onClick = {
+                                    onFolderSelected(folder)
+                                    showingChats = true
+                                },
                             )
                         }
-                    }
-                    items(source.chats, key = { it.id }) { chat ->
-                        SourceRow(
-                            title = chat.title,
-                            subtitle = chat.lastMessagePreview,
-                            selected = chat.id == source.selectedChat?.id,
-                            modifier = if (chat.id == source.selectedChat?.id) {
-                                Modifier.focusRequester(focusRequester)
-                            } else {
-                                Modifier
-                            },
-                            leading = {
-                                TelegramImage(
-                                    fileId = chat.photoFileId,
-                                    minithumbnail = chat.minithumbnail,
-                                    contentDescription = null,
-                                    modifier = Modifier
-                                        .size(36.dp)
-                                        .background(TvGramColors.SurfaceElevated, RoundedCornerShape(18.dp)),
+                    } else {
+                        item {
+                            SourceRow(
+                                title = stringResource(R.string.source_back_to_folders),
+                                selected = false,
+                                leading = { tint ->
+                                    TvIcon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, null, tint = tint, size = 20.dp)
+                                },
+                                onClick = { showingChats = false },
+                            )
+                        }
+                        if (source.chats.isEmpty() && !source.isLoadingChats) {
+                            item {
+                                Text(
+                                    text = stringResource(R.string.source_empty_folder),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = TvGramColors.OnBackgroundMuted,
+                                    modifier = Modifier.padding(20.dp),
                                 )
-                            },
-                            onClick = {
-                                onChatSelected(chat)
-                                onDismiss()
-                            },
-                        )
+                            }
+                        }
+                        items(source.chats, key = { it.id }) { chat ->
+                            SourceRow(
+                                title = chat.title,
+                                subtitle = chat.lastMessagePreview,
+                                selected = chat.id == source.selectedChat?.id,
+                                modifier = if (chat.id == source.selectedChat?.id) {
+                                    Modifier.focusRequester(focusRequester)
+                                } else {
+                                    Modifier
+                                },
+                                leading = {
+                                    TelegramImage(
+                                        fileId = chat.photoFileId,
+                                        minithumbnail = chat.minithumbnail,
+                                        contentDescription = null,
+                                        modifier = Modifier
+                                            .size(36.dp)
+                                            .background(TvGramColors.SurfaceElevated, RoundedCornerShape(18.dp)),
+                                    )
+                                },
+                                onClick = {
+                                    onChatSelected(chat)
+                                    onDismiss()
+                                },
+                            )
+                        }
                     }
                 }
             }

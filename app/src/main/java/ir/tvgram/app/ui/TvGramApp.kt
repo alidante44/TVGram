@@ -27,23 +27,14 @@ import ir.tvgram.app.ui.common.CenteredMessage
 import ir.tvgram.app.ui.login.CredentialsScreen
 import ir.tvgram.app.ui.login.LoginScreen
 import ir.tvgram.app.ui.media.MediaScreen
-import ir.tvgram.app.ui.photo.PhotoViewerScreen
-import ir.tvgram.app.ui.player.PlayerScreen
+import ir.tvgram.app.ui.player.MediaPlayerOverlay
 import ir.tvgram.app.ui.settings.SettingsScreen
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import ir.tvgram.app.ui.theme.TvGramColors
 import ir.tvgram.telegram.model.AuthState
 import ir.tvgram.telegram.model.ConnectionState
-import ir.tvgram.telegram.model.MediaKind
 import ir.tvgram.telegram.model.TgMediaItem
-
-/** Fullscreen surfaces that take over the whole screen when open. */
-private sealed interface Overlay {
-    data object None : Overlay
-    data object Player : Overlay
-    data object Photo : Overlay
-}
 
 @Composable
 fun TvGramApp(viewModel: RootViewModel = hiltViewModel()) {
@@ -74,11 +65,11 @@ fun TvGramApp(viewModel: RootViewModel = hiltViewModel()) {
 @Composable
 private fun MainShell(railSide: RailSide, connectionState: ConnectionState) {
     var destination by rememberSaveable { mutableStateOf(Destination.MEDIA) }
-    var overlay by remember { mutableStateOf<Overlay>(Overlay.None) }
+    // Films, songs and photos all open the same player window, so there is one
+    // place to learn rather than three.
+    var playerOpen by remember { mutableStateOf(false) }
 
-    val openMedia: (TgMediaItem) -> Unit = { item ->
-        overlay = if (item.kind == MediaKind.PHOTO) Overlay.Photo else Overlay.Player
-    }
+    val openMedia: (TgMediaItem) -> Unit = { playerOpen = true }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Row(modifier = Modifier.fillMaxSize()) {
@@ -90,10 +81,7 @@ private fun MainShell(railSide: RailSide, connectionState: ConnectionState) {
 
             Box(modifier = Modifier.weight(1f)) {
                 when (destination) {
-                    Destination.MEDIA -> MediaScreen(
-                        onPlay = openMedia,
-                        onShowPhoto = openMedia,
-                    )
+                    Destination.MEDIA -> MediaScreen(onOpen = openMedia)
 
                     Destination.CHATS -> ChatsScreen(onOpenMedia = openMedia)
                     Destination.SETTINGS -> SettingsScreen()
@@ -112,10 +100,8 @@ private fun MainShell(railSide: RailSide, connectionState: ConnectionState) {
             modifier = Modifier.align(Alignment.TopCenter),
         )
 
-        when (overlay) {
-            Overlay.Player -> PlayerScreen(onClose = { overlay = Overlay.None })
-            Overlay.Photo -> PhotoViewerScreen(onClose = { overlay = Overlay.None })
-            Overlay.None -> Unit
+        if (playerOpen) {
+            MediaPlayerOverlay(onClose = { playerOpen = false })
         }
     }
 }

@@ -65,6 +65,14 @@
     <string name="player_play">پخش</string>
     <string name="player_buffering">در حال بافر…</string>
     <string name="player_downloading">در حال دریافت %1$d%%</string>
+    <string name="player_rotate">چرخش</string>
+    <string name="player_fullscreen">تمام‌صفحه</string>
+    <string name="player_exit_fullscreen">خروج از تمام‌صفحه</string>
+    <string name="player_close">بستن</string>
+    <string name="player_pause">مکث</string>
+    <string name="player_next">بعدی</string>
+    <string name="player_previous">قبلی</string>
+    <string name="player_seek_confirm">برای رفتن به این نقطه، وسط را بزنید</string>
     <string name="player_error">پخش ممکن نشد</string>
     <string name="player_subtitle_off">خاموش</string>
 

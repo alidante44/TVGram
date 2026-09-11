@@ -56,6 +56,14 @@
     <string name="player_play">Play</string>
     <string name="player_buffering">Buffering…</string>
     <string name="player_downloading">Downloading %1$d%%</string>
+    <string name="player_rotate">Rotate</string>
+    <string name="player_fullscreen">Fullscreen</string>
+    <string name="player_exit_fullscreen">Exit fullscreen</string>
+    <string name="player_close">Close</string>
+    <string name="player_pause">Pause</string>
+    <string name="player_next">Next</string>
+    <string name="player_previous">Previous</string>
+    <string name="player_seek_confirm">Press centre to jump here</string>
     <string name="player_error">Playback failed</string>
     <string name="player_subtitle_off">Off</string>
 

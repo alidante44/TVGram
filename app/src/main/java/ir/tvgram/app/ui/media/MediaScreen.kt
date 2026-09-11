@@ -29,7 +29,6 @@ import ir.tvgram.app.settings.AppLanguage
 import ir.tvgram.app.ui.common.CenteredMessage
 import ir.tvgram.app.ui.common.LoadingBar
 import ir.tvgram.app.ui.theme.TvGramDimens
-import ir.tvgram.telegram.model.MediaKind
 import ir.tvgram.telegram.model.TgMediaItem
 import java.util.Locale
 
@@ -40,8 +39,7 @@ import java.util.Locale
  */
 @Composable
 fun MediaScreen(
-    onPlay: (TgMediaItem) -> Unit,
-    onShowPhoto: (TgMediaItem) -> Unit,
+    onOpen: (TgMediaItem) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: MediaViewModel = hiltViewModel(),
 ) {
@@ -146,7 +144,7 @@ fun MediaScreen(
                             persianDates = persianDates,
                             onClick = {
                                 viewModel.openItem(item)
-                                if (item.kind == MediaKind.PHOTO) onShowPhoto(item) else onPlay(item)
+                                onOpen(item)
                             },
                         )
                     }
