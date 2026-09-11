@@ -114,6 +114,7 @@ jobs:
           steps.tdlib.outputs.available == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BAKED: ${{ steps.credentials.outputs.baked }}
         run: |
           set -euo pipefail
           mkdir -p release
@@ -123,10 +124,20 @@ jobs:
           done
           ls -la release
 
+          # Say plainly whether the keys are in the APK. Otherwise the only way
+          # to find out is to install it on a TV and see if it asks.
+          if [ "${BAKED}" = "true" ]; then
+            login="Opens straight to a QR code — no api_id or api_hash to enter."
+          else
+            login="**Asks for api_id and api_hash on first launch** (the build had no credentials)."
+          fi
+
           notes="Built from ${GITHUB_SHA:0:7} by .github/workflows/build.yml.
 
           * \`tvgram-real-debug.apk\` — connects to your Telegram account. This is the one you want.
           * \`tvgram-mock-debug.apk\` — generated sample content, no account needed.
+
+          ${login}
 
           Install with \`adb install -r <file>\`, or sideload it onto the TV."
 
