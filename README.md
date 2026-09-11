@@ -120,6 +120,15 @@ ready bytes; the data source asks TDLib to download from the byte the player
 wants, then blocks on file updates only until each read can be satisfied. Seeking
 re-issues the download at the new offset rather than waiting for the whole file.
 
+## Not implemented yet
+
+* **Background audio.** Playback lives in the player screen; leaving it stops
+  the audio. Doing this properly means moving playback behind a Media3
+  `MediaSessionService` and driving it from a `MediaController`, which also
+  brings the TV's own media controls and the remote's transport keys.
+* **Sending anything.** TVGram reads; it does not post messages, react, or
+  forward.
+
 ## Requirements
 
 * Android 6.0 (API 23) or newer, `android.software.leanback`
