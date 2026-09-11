@@ -79,7 +79,6 @@ android {
         freeCompilerArgs += listOf(
             "-opt-in=kotlin.RequiresOptIn",
             "-opt-in=androidx.tv.material3.ExperimentalTvMaterial3Api",
-            "-opt-in=androidx.media3.common.util.UnstableApi",
             "-opt-in=kotlinx.coroutines.ExperimentalCoroutinesApi",
         )
     }
@@ -99,6 +98,10 @@ android {
     lint {
         // A missing translation should not break a debug build on CI.
         disable += "MissingTranslation"
+        // Media3's @UnstableApi is an annotation, not a Kotlin opt-in marker, so
+        // it cannot be acknowledged with -opt-in. The player deliberately uses
+        // those APIs (PlayerView, renderer configuration, custom DataSource).
+        disable += "UnsafeOptInUsageError"
     }
 }
 

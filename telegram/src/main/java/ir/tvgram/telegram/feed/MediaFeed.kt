@@ -84,7 +84,7 @@ class MediaFeed(
     fun refresh() {
         job?.cancel()
         job = null
-        cursors.forEach(Cursor::reset)
+        cursors.forEach { it.reset() }
         seen.clear()
         _state.value = MediaFeedState()
         loadMore()

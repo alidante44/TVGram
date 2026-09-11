@@ -142,7 +142,7 @@ class TdlibTelegramClient(
     // --- browsing ---------------------------------------------------------
 
     override suspend fun folders(): List<TgFolder> {
-        val builtIns = BuiltInFolder.entries.map(TgFolder::builtIn)
+        val builtIns = BuiltInFolder.entries.map(TgFolder::forBuiltIn)
         val custom = chatFolders.value.map { info ->
             TgFolder(id = info.id, title = folderTitle(info))
         }

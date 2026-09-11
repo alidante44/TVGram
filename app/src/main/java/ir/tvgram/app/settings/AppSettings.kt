@@ -45,7 +45,7 @@ data class AppSettings(
     val matchFrameRate: Boolean = true,
 ) {
     companion object {
-        /** Matches TgFolder.builtIn(ALL).id. */
+        /** Matches TgFolder.forBuiltIn(BuiltInFolder.ALL).id. */
         const val ALL_FOLDER_ID: Int = -1
 
         val GRID_COLUMN_CHOICES: List<Int> = listOf(3, 4, 5, 6)

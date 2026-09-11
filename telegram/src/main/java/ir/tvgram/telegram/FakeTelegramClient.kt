@@ -90,7 +90,7 @@ class FakeTelegramClient(private val context: Context) : TelegramClient {
     // --- browsing ---------------------------------------------------------
 
     override suspend fun folders(): List<TgFolder> =
-        BuiltInFolder.entries.map(TgFolder::builtIn) + listOf(
+        BuiltInFolder.entries.map(TgFolder::forBuiltIn) + listOf(
             TgFolder(id = 1, title = "Work"),
             TgFolder(id = 2, title = "Music"),
         )

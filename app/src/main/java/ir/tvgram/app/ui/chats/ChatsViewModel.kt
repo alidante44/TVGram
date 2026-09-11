@@ -55,7 +55,7 @@ class ChatsViewModel @Inject constructor(
             // The reader always starts from the full chat list: it is a reader,
             // not a second source picker.
             val folder = client.folders().firstOrNull { it.builtIn == BuiltInFolder.ALL }
-                ?: TgFolder.builtIn(BuiltInFolder.ALL)
+                ?: TgFolder.forBuiltIn(BuiltInFolder.ALL)
             val chats = runCatching { client.chats(folder) }.getOrElse { emptyList() }
             _state.value = ChatsUiState(chats = chats, isLoadingChats = false)
 

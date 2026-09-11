@@ -53,8 +53,11 @@ data class TgFolder(
     val chatCount: Int = 0,
 ) {
     companion object {
-        /** Built-in folders use negative ids so they never clash with Telegram's. */
-        fun builtIn(kind: BuiltInFolder): TgFolder =
+        /**
+         * Built-in folders use negative ids so they never clash with the ids
+         * Telegram assigns to the user's own chat folders.
+         */
+        fun forBuiltIn(kind: BuiltInFolder): TgFolder =
             TgFolder(id = -(kind.ordinal + 1), title = "", builtIn = kind)
     }
 }
