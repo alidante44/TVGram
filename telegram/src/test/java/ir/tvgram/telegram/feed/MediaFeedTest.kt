@@ -12,6 +12,7 @@ import ir.tvgram.telegram.model.TgChat
 import ir.tvgram.telegram.model.TgFile
 import ir.tvgram.telegram.model.TgFolder
 import ir.tvgram.telegram.model.TgMediaItem
+import ir.tvgram.telegram.model.TgLiveStream
 import ir.tvgram.telegram.model.TgProxy
 import ir.tvgram.telegram.model.TgUser
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -188,6 +189,8 @@ class MediaFeedTest {
         override suspend fun downloadedPrefixSize(fileId: Int, offset: Long): Long = 0
         override suspend fun cancelDownload(fileId: Int) = Unit
         override suspend fun downloadFully(fileId: Int, priority: Int): String = ""
+        override suspend fun liveStream(chatId: Long): TgLiveStream? = null
+        override val videoChatUpdates: Flow<Long> = emptyFlow()
         override suspend fun proxies(): List<TgProxy> = emptyList()
         override suspend fun addProxy(proxy: TgProxy): TgProxy? = null
         override suspend fun enableProxy(id: Int) = Unit

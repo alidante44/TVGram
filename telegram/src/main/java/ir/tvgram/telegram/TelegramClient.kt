@@ -9,6 +9,7 @@ import ir.tvgram.telegram.model.TelegramCredentials
 import ir.tvgram.telegram.model.TgChat
 import ir.tvgram.telegram.model.TgFile
 import ir.tvgram.telegram.model.TgFolder
+import ir.tvgram.telegram.model.TgLiveStream
 import ir.tvgram.telegram.model.TgProxy
 import ir.tvgram.telegram.model.TgUser
 import kotlinx.coroutines.flow.Flow
@@ -103,6 +104,20 @@ interface TelegramClient {
 
     /** Downloads the whole file and returns its local path. */
     suspend fun downloadFully(fileId: Int, priority: Int = DEFAULT_PRIORITY): String
+
+    // --- live streams -----------------------------------------------------
+
+    /**
+     * The chat's active video chat or channel live stream, or null when there is
+     * none.
+     */
+    suspend fun liveStream(chatId: Long): TgLiveStream?
+
+    /**
+     * Emits a chat id whenever its video chat starts, ends or changes, so a
+     * banner can appear and disappear without polling.
+     */
+    val videoChatUpdates: Flow<Long>
 
     // --- proxies ----------------------------------------------------------
 

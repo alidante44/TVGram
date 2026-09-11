@@ -16,6 +16,7 @@ import ir.tvgram.telegram.model.TelegramException
 import ir.tvgram.telegram.model.TgChat
 import ir.tvgram.telegram.model.TgFile
 import ir.tvgram.telegram.model.TgFolder
+import ir.tvgram.telegram.model.TgLiveStream
 import ir.tvgram.telegram.model.TgMediaItem
 import ir.tvgram.telegram.model.TgProxy
 import ir.tvgram.telegram.model.TgMessage
@@ -72,6 +73,12 @@ class TdlibTelegramClient(
         onBufferOverflow = BufferOverflow.DROP_OLDEST,
     )
     private val fileUpdateStream = _fileUpdates.asSharedFlow()
+
+    /** Chat ids whose video chat started, ended or changed. */
+    private val _videoChatUpdates = MutableSharedFlow<Long>(
+        extraBufferCapacity = 32,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST,
+    )
 
     private val startMutex = Mutex()
     private var credentials: TelegramCredentials = TelegramCredentials(0, "")
@@ -355,32 +362,54 @@ class TdlibTelegramClient(
             ?: throw TelegramException(0, "file $fileId has no local path after download")
     }
 
+    // --- live streams -----------------------------------------------------
+
+    /**
+     * What TDLib knows about a chat's broadcast.
+     *
+     * Only the description is available to us: the stream segments
+     * (getGroupCallStreamSegment) are served to call participants, and joining
+     * needs a WebRTC payload from Telegram's tgcalls library, which TDLib does
+     * not contain. So this answers "is something live right now", which is what
+     * the banner needs.
+     */
+    override suspend fun liveStream(chatId: Long): TgLiveStream? {
+        val chat = chatCache[chatId] ?: connection.sendOrNull<TdApi.Chat>(chatQuery(chatId)) ?: return null
+        val callId = chat.videoChat?.groupCallId ?: 0
+        if (callId == 0) return null
+
+        val call = connection.sendOrNull<TdApi.GroupCall>(
+            TdApi.GetGroupCall().apply { groupCallId = callId },
+        ) ?: return null
+        if (!call.isActive) return null
+
+        return TgLiveStream(
+            groupCallId = callId,
+            chatId = chatId,
+            title = call.title.orEmpty(),
+            participantCount = call.participantCount,
+            isRtmpStream = call.isRtmpStream,
+        )
+    }
+
+    override val videoChatUpdates: Flow<Long> = _videoChatUpdates.asSharedFlow()
+
     // --- proxies ----------------------------------------------------------
 
     override suspend fun proxies(): List<TgProxy> =
-        connection.sendOrNull<TdApi.Proxies>(TdApi.GetProxies())
+        connection.sendOrNull<TdApi.AddedProxies>(TdApi.GetProxies())
             ?.proxies?.mapNotNull(::toProxy).orEmpty()
 
     override suspend fun addProxy(proxy: TgProxy): TgProxy? {
-        val type: TdApi.ProxyType = when (proxy.kind) {
-            ProxyKind.MTPROTO -> TdApi.ProxyTypeMtproto().apply { secret = proxy.secret }
-            ProxyKind.SOCKS5 -> TdApi.ProxyTypeSocks5().apply {
-                username = proxy.username
-                password = proxy.password
-            }
-
-            ProxyKind.HTTP -> TdApi.ProxyTypeHttp().apply {
-                username = proxy.username
-                password = proxy.password
-                httpOnly = false
-            }
-        }
-        val added = connection.sendOrNull<TdApi.Proxy>(
+        val added = connection.sendOrNull<TdApi.AddedProxy>(
             TdApi.AddProxy().apply {
-                server = proxy.server
-                port = proxy.port
+                this.proxy = TdApi.Proxy().apply {
+                    server = proxy.server
+                    port = proxy.port
+                    type = proxyType(proxy)
+                }
                 enable = true
-                this.type = type
+                comment = ""
             },
         )
         return added?.let(::toProxy)
@@ -398,7 +427,27 @@ class TdlibTelegramClient(
         connection.sendOrNull<TdApi.Ok>(TdApi.RemoveProxy().apply { proxyId = id })
     }
 
-    private fun toProxy(proxy: TdApi.Proxy): TgProxy? {
+    private fun proxyType(proxy: TgProxy): TdApi.ProxyType = when (proxy.kind) {
+        ProxyKind.MTPROTO -> TdApi.ProxyTypeMtproto().apply { secret = proxy.secret }
+
+        ProxyKind.SOCKS5 -> TdApi.ProxyTypeSocks5().apply {
+            username = proxy.username
+            password = proxy.password
+        }
+
+        ProxyKind.HTTP -> TdApi.ProxyTypeHttp().apply {
+            username = proxy.username
+            password = proxy.password
+            httpOnly = false
+        }
+    }
+
+    /**
+     * The identity of a proxy (its id and whether it is on) lives on the
+     * wrapper, not on the server address itself.
+     */
+    private fun toProxy(added: TdApi.AddedProxy): TgProxy? {
+        val proxy = added.proxy ?: return null
         val kind = when (proxy.type) {
             is TdApi.ProxyTypeMtproto -> ProxyKind.MTPROTO
             is TdApi.ProxyTypeSocks5 -> ProxyKind.SOCKS5
@@ -406,11 +455,11 @@ class TdlibTelegramClient(
             else -> return null
         }
         return TgProxy(
-            id = proxy.id,
+            id = added.id,
             server = proxy.server.orEmpty(),
             port = proxy.port,
             kind = kind,
-            isEnabled = proxy.isEnabled,
+            isEnabled = added.isEnabled,
         )
     }
 
@@ -476,6 +525,22 @@ class TdlibTelegramClient(
 
             is TdApi.UpdateChatFolders ->
                 chatFolders.value = update.chatFolders?.toList() ?: emptyList()
+
+            is TdApi.UpdateChatVideoChat -> {
+                chatCache[update.chatId]?.videoChat = update.videoChat
+                _videoChatUpdates.tryEmit(update.chatId)
+            }
+
+            // A group call update carries no chat id, so the chat it belongs to
+            // has to be found by the call id we already know about.
+            is TdApi.UpdateGroupCall -> {
+                val callId = update.groupCall?.id ?: 0
+                if (callId != 0) {
+                    chatCache.values
+                        .firstOrNull { it.videoChat?.groupCallId == callId }
+                        ?.let { _videoChatUpdates.tryEmit(it.id) }
+                }
+            }
 
             is TdApi.UpdateFile -> _fileUpdates.tryEmit(update.file)
         }

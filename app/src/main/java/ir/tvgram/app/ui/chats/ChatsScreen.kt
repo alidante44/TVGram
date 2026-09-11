@@ -45,6 +45,7 @@ import ir.tvgram.app.ui.theme.TvGramDimens
 import ir.tvgram.app.util.Format
 import ir.tvgram.telegram.model.MediaKind
 import ir.tvgram.telegram.model.TgChat
+import ir.tvgram.telegram.model.TgLiveStream
 import ir.tvgram.telegram.model.TgMediaItem
 import ir.tvgram.telegram.model.TgMessage
 import java.util.Locale
@@ -97,7 +98,10 @@ fun ChatsScreen(
                 .background(TvGramColors.Surface),
         )
 
-        Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
+        Column(modifier = Modifier.weight(1f).fillMaxHeight()) {
+            state.liveStream?.let { LiveBanner(stream = it) }
+
+            Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
             when {
                 state.selectedChat == null -> CenteredMessage(text = stringResource(R.string.chats_empty))
 
@@ -135,6 +139,55 @@ fun ChatsScreen(
                     }
                 }
             }
+            }
+        }
+    }
+}
+
+/**
+ * Says that the chat is broadcasting right now.
+ *
+ * There is no play button: Telegram serves live segments only to a participant
+ * of the group call, and joining one needs a WebRTC payload produced by
+ * Telegram's own tgcalls library, which is not part of TDLib. Offering a button
+ * that cannot work would be worse than saying so.
+ */
+@Composable
+private fun LiveBanner(stream: TgLiveStream) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = TvGramDimens.ScreenPaddingHorizontal, vertical = 12.dp)
+            .background(TvGramColors.SurfaceElevated, RoundedCornerShape(10.dp))
+            .padding(horizontal = 20.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        Box(
+            modifier = Modifier
+                .background(TvGramColors.Danger, RoundedCornerShape(6.dp))
+                .padding(horizontal = 10.dp, vertical = 4.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.live_badge),
+                style = MaterialTheme.typography.labelSmall,
+                color = TvGramColors.OnBackground,
+            )
+        }
+        Column {
+            Text(
+                text = stream.title.ifBlank { stringResource(R.string.live_title) },
+                style = MaterialTheme.typography.bodyLarge,
+                color = TvGramColors.OnBackground,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = stringResource(R.string.live_watching, stream.participantCount) + " · " +
+                    stringResource(R.string.live_unavailable),
+                style = MaterialTheme.typography.labelSmall,
+                color = TvGramColors.OnBackgroundMuted,
+            )
         }
     }
 }

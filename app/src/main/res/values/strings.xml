@@ -34,6 +34,10 @@
     <string name="media_search_hint">جست‌وجو در مدیا…</string>
     <string name="search_no_results">چیزی پیدا نشد</string>
     <string name="chats_search_hint">جست‌وجو در چت‌ها…</string>
+    <string name="live_badge">زنده</string>
+    <string name="live_title">پخش زنده</string>
+    <string name="live_watching">%1$d نفر در حال تماشا</string>
+    <string name="live_unavailable">تماشای پخش زنده در این نسخه ممکن نیست</string>
     <string name="settings_search_hint">جست‌وجو در تنظیمات…</string>
     <string name="media_empty">در این چت رسانه‌ای پیدا نشد</string>
     <string name="media_loading">در حال بارگذاری…</string>

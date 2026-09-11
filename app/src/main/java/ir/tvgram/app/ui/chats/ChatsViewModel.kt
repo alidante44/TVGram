@@ -12,6 +12,7 @@ import ir.tvgram.telegram.feed.MessageFeedState
 import ir.tvgram.telegram.model.BuiltInFolder
 import ir.tvgram.telegram.model.TgChat
 import ir.tvgram.telegram.model.TgFolder
+import ir.tvgram.telegram.model.TgLiveStream
 import ir.tvgram.telegram.model.TgMediaItem
 import javax.inject.Inject
 import kotlinx.coroutines.Job
@@ -20,6 +21,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
@@ -33,6 +35,8 @@ data class ChatsUiState(
     /** What the viewer typed into the chat search box. */
     val query: String = "",
     val results: List<TgChat> = emptyList(),
+    /** Set while the open chat is broadcasting. */
+    val liveStream: TgLiveStream? = null,
 ) {
     /** Search results stand in for the chat list while a query is active. */
     val visibleChats: List<TgChat> get() = if (query.isBlank()) chats else results
@@ -50,6 +54,7 @@ class ChatsViewModel @Inject constructor(
 
     private val feed = MutableStateFlow<MessageFeed?>(null)
     private var searchJob: Job? = null
+    private var liveStreamJob: Job? = null
 
     val messages: StateFlow<MessageFeedState> = feed
         .flatMapLatest { it?.state ?: flowOf(MessageFeedState()) }
@@ -96,8 +101,31 @@ class ChatsViewModel @Inject constructor(
 
     fun selectChat(chat: TgChat) {
         if (_state.value.selectedChat?.id == chat.id) return
-        _state.value = _state.value.copy(selectedChat = chat)
+        _state.value = _state.value.copy(selectedChat = chat, liveStream = null)
         feed.value = MessageFeed(client, viewModelScope, chat.id).also { it.loadMore() }
+        watchLiveStream(chat.id)
+    }
+
+    /**
+     * Keeps the live banner truthful: asked once when the chat opens, then again
+     * whenever Telegram says this chat's video chat changed, so the banner
+     * appears when a broadcast starts and goes away when it ends.
+     */
+    private fun watchLiveStream(chatId: Long) {
+        liveStreamJob?.cancel()
+        liveStreamJob = viewModelScope.launch {
+            refreshLiveStream(chatId)
+            client.videoChatUpdates
+                .filter { it == chatId }
+                .collect { refreshLiveStream(chatId) }
+        }
+    }
+
+    private suspend fun refreshLiveStream(chatId: Long) {
+        val stream = runCatching { client.liveStream(chatId) }.getOrNull()
+        if (_state.value.selectedChat?.id == chatId) {
+            _state.value = _state.value.copy(liveStream = stream)
+        }
     }
 
     fun loadMore() {

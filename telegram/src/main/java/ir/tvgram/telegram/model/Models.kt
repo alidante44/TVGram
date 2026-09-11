@@ -83,6 +83,24 @@ data class TgChat(
     override fun hashCode(): Int = id.hashCode()
 }
 
+/**
+ * An active video chat or channel live stream on a chat.
+ *
+ * This is what TDLib will tell us about a broadcast. Watching it is a separate
+ * matter: the stream segments are only served to a participant of the call, and
+ * joining needs a WebRTC payload produced by Telegram's own tgcalls library,
+ * which is not part of TDLib. So this describes the stream for the banner; it
+ * does not carry anything playable.
+ */
+data class TgLiveStream(
+    val groupCallId: Int,
+    val chatId: Long,
+    val title: String = "",
+    val participantCount: Int = 0,
+    /** True for a channel broadcasting over RTMP rather than a group voice chat. */
+    val isRtmpStream: Boolean = false,
+)
+
 /** A file as TDLib currently knows it. */
 data class TgFile(
     val id: Int,

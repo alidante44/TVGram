@@ -20,6 +20,7 @@ import ir.tvgram.telegram.model.TgChat
 import ir.tvgram.telegram.model.TgFile
 import ir.tvgram.telegram.model.TgFolder
 import ir.tvgram.telegram.model.TgMediaItem
+import ir.tvgram.telegram.model.TgLiveStream
 import ir.tvgram.telegram.model.TgProxy
 import ir.tvgram.telegram.model.TgMessage
 import ir.tvgram.telegram.model.TgUser
@@ -32,6 +33,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flow
 
 /**
@@ -214,6 +216,24 @@ class FakeTelegramClient(private val context: Context) : TelegramClient {
         downloads[fileId] = fakeSize(fileId)
         return writeLocalFile(fileId).absolutePath
     }
+
+    // --- live streams -----------------------------------------------------
+
+    /** The first channel in the generated data is always "live", to exercise the banner. */
+    override suspend fun liveStream(chatId: Long): TgLiveStream? {
+        val channels = chats(TgFolder.forBuiltIn(BuiltInFolder.CHANNELS), limit = 200)
+        val live = channels.firstOrNull() ?: return null
+        if (live.id != chatId) return null
+        return TgLiveStream(
+            groupCallId = 1,
+            chatId = chatId,
+            title = live.title,
+            participantCount = 1_284,
+            isRtmpStream = true,
+        )
+    }
+
+    override val videoChatUpdates: Flow<Long> = emptyFlow()
 
     // --- proxies ----------------------------------------------------------
 

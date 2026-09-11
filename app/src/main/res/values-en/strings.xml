@@ -28,6 +28,10 @@
     <string name="media_search_hint">Search media…</string>
     <string name="search_no_results">Nothing found</string>
     <string name="chats_search_hint">Search chats…</string>
+    <string name="live_badge">LIVE</string>
+    <string name="live_title">Live broadcast</string>
+    <string name="live_watching">%1$d watching</string>
+    <string name="live_unavailable">watching a live stream is not possible in this version</string>
     <string name="settings_search_hint">Search settings…</string>
     <string name="media_empty">No media found in this chat</string>
     <string name="media_loading">Loading…</string>
