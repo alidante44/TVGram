@@ -11,6 +11,7 @@ import ir.tvgram.telegram.model.TgFile
 import ir.tvgram.telegram.model.TgFolder
 import ir.tvgram.telegram.model.TgLiveStream
 import ir.tvgram.telegram.model.TgProxy
+import ir.tvgram.telegram.model.TgStreamChannel
 import ir.tvgram.telegram.model.TgUser
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
@@ -118,6 +119,33 @@ interface TelegramClient {
      * banner can appear and disappear without polling.
      */
     val videoChatUpdates: Flow<Long>
+
+    /**
+     * Becomes a listener of the call so the server will serve its stream.
+     *
+     * Telegram hands stream segments only to participants, so watching means
+     * joining first — muted, with no camera. Returns false when the server
+     * refuses, which is the honest answer for a call that cannot be watched
+     * this way.
+     */
+    suspend fun joinLiveStream(groupCallId: Int): Boolean
+
+    suspend fun leaveLiveStream(groupCallId: Int)
+
+    /** The tracks on offer; empty until [joinLiveStream] has succeeded. */
+    suspend fun liveStreamChannels(groupCallId: Int): List<TgStreamChannel>
+
+    /**
+     * One segment of the stream: MPEG-4 for video, a modified OGG for audio.
+     *
+     * @param timeOffsetMs the moment the segment begins, in Unix milliseconds.
+     */
+    suspend fun liveStreamSegment(
+        groupCallId: Int,
+        timeOffsetMs: Long,
+        scale: Int,
+        channelId: Int,
+    ): ByteArray?
 
     // --- proxies ----------------------------------------------------------
 

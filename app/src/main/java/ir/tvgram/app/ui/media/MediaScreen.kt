@@ -1,5 +1,6 @@
 package ir.tvgram.app.ui.media
 
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -7,11 +8,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -20,7 +23,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.AbsoluteAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -83,9 +85,12 @@ fun MediaScreen(
 
     Box(modifier = modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
-            // Tabs sit physically left and the source picker physically right in
-            // both writing directions — the layout the TV remote's shape implies.
-            Box(
+            // One row, not a Box with two aligned children: aligning them to
+            // opposite edges let the search box and the chat picker sit on top
+            // of the tabs as soon as the three together were wider than the
+            // screen, which is exactly what happened — "videos" and "photos"
+            // vanished behind the picker. A row cannot overlap.
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(
@@ -94,25 +99,29 @@ fun MediaScreen(
                         top = TvGramDimens.ScreenPaddingVertical,
                         bottom = 12.dp,
                     ),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
+                // The tabs take whatever is left and scroll sideways if even
+                // that is not enough, so every category stays reachable.
                 CategoryTabs(
                     selected = category,
                     onSelect = viewModel::selectCategory,
-                    modifier = Modifier.align(AbsoluteAlignment.CenterLeft),
+                    modifier = Modifier
+                        .weight(1f)
+                        .horizontalScroll(rememberScrollState()),
                 )
-                Row(
-                    modifier = Modifier.align(AbsoluteAlignment.CenterRight),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    TvTextField(
-                        value = mediaQuery,
-                        onValueChange = viewModel::searchMedia,
-                        placeholder = stringResource(R.string.media_search_hint),
-                        modifier = Modifier.width(260.dp),
-                    )
-                    SourceButton(source = source, onClick = { pickerOpen = true })
-                }
+                TvTextField(
+                    value = mediaQuery,
+                    onValueChange = viewModel::searchMedia,
+                    placeholder = stringResource(R.string.media_search_hint),
+                    modifier = Modifier.width(200.dp),
+                )
+                SourceButton(
+                    source = source,
+                    onClick = { pickerOpen = true },
+                    modifier = Modifier.widthIn(max = 240.dp),
+                )
             }
 
             if (feed.isLoading) {

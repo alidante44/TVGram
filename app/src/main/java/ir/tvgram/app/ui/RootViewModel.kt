@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import ir.tvgram.app.BuildConfig
 import ir.tvgram.app.settings.AppSettings
+import ir.tvgram.app.settings.PendingProxyLink
 import ir.tvgram.app.settings.SettingsRepository
 import ir.tvgram.telegram.TelegramClient
 import ir.tvgram.telegram.model.AuthState
@@ -22,7 +23,11 @@ import kotlinx.coroutines.launch
 class RootViewModel @Inject constructor(
     private val client: TelegramClient,
     private val settingsRepository: SettingsRepository,
+    pendingProxyLink: PendingProxyLink,
 ) : ViewModel() {
+
+    /** Non-null while a proxy link opened from outside is waiting to be applied. */
+    val proxyLink: StateFlow<String?> = pendingProxyLink.link
 
     val authState: StateFlow<AuthState> = client.authState
     val connectionState: StateFlow<ConnectionState> = client.connectionState

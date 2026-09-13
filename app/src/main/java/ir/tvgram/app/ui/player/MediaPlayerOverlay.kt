@@ -118,11 +118,17 @@ private fun PlayerWindow(
 
     // Controls fade out once the viewer settles in to watch, and any key press
     // brings them back.
-    LaunchedEffect(lastInteraction, state.isPlaying, state.isPhoto) {
+    //
+    // Fullscreen hides them whatever is open, including a photo: a still has no
+    // "playing" state to wait for, so the old rule left the bar sitting on top
+    // of the picture and fullscreen did nothing for photos.
+    LaunchedEffect(lastInteraction, state.isPlaying, state.isPhoto, state.fullscreen) {
         controlsVisible = true
-        if (state.isPlaying && !state.isPhoto) {
-            delay(CONTROLS_TIMEOUT_MS)
-            if (System.currentTimeMillis() - lastInteraction >= CONTROLS_TIMEOUT_MS) {
+        val autoHide = state.fullscreen || (state.isPlaying && !state.isPhoto)
+        if (autoHide) {
+            val timeout = if (state.isPhoto) PHOTO_CONTROLS_TIMEOUT_MS else CONTROLS_TIMEOUT_MS
+            delay(timeout)
+            if (System.currentTimeMillis() - lastInteraction >= timeout) {
                 controlsVisible = false
             }
         }
@@ -551,6 +557,9 @@ private fun ControlButton(
 }
 
 private const val CONTROLS_TIMEOUT_MS = 4_000L
+
+/** A photo is looked at rather than watched, so its bar goes sooner. */
+private const val PHOTO_CONTROLS_TIMEOUT_MS = 1_500L
 
 /** Past this length a percentage step aims better than a fixed number of seconds. */
 private const val LONG_MEDIA_MS = 20 * 60 * 1000L

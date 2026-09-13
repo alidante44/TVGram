@@ -23,6 +23,9 @@ class SettingsRepository @Inject constructor(
 ) {
     val settings: Flow<AppSettings> = context.dataStore.data.map(::toSettings)
 
+    /** The stored settings right now, without waiting on the flow. */
+    suspend fun current(): AppSettings = settings.first()
+
     suspend fun update(transform: (AppSettings) -> AppSettings) {
         context.dataStore.edit { preferences ->
             val updated = transform(toSettings(preferences))

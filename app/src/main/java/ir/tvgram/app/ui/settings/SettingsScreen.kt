@@ -43,7 +43,9 @@ import ir.tvgram.app.ui.media.displayTitle
 import ir.tvgram.app.ui.theme.TvGramColors
 import ir.tvgram.app.ui.theme.TvGramDimens
 import ir.tvgram.app.util.Format
+import ir.tvgram.telegram.model.BuiltInFolder
 import ir.tvgram.telegram.model.ProxyKind
+import ir.tvgram.telegram.model.TgFolder
 import ir.tvgram.telegram.model.TgProxy
 
 /**
@@ -77,6 +79,7 @@ fun SettingsScreen(
         // --- Telegram -----------------------------------------------------
         section(stringResource(R.string.settings_section_telegram))
 
+        val pending = stringResource(R.string.settings_value_pending)
         row(
             key = "account",
             title = stringResource(R.string.settings_account),
@@ -84,18 +87,24 @@ fun SettingsScreen(
                 listOfNotNull(user.displayName, user.phoneNumber)
                     .filter(String::isNotBlank)
                     .joinToString(" · ")
-            }.orEmpty(),
+            }?.takeIf(String::isNotBlank)
+                ?: if (uiState.isLoading) pending else stringResource(R.string.settings_value_retry),
             onClick = viewModel::refresh,
         )
 
-        val folders = uiState.folders
+        // Falling back to the built-in folders keeps this row usable while the
+        // account's own folders are still on their way — before, an empty list
+        // meant an empty label and a click that did nothing at all.
+        val folders = uiState.folders.ifEmpty { BUILT_IN_FOLDERS }
         row(
             key = "default-folder",
             title = stringResource(R.string.settings_default_folder),
-            value = folders.firstOrNull { it.id == settings.defaultFolderId }?.displayTitle().orEmpty(),
+            value = folders.firstOrNull { it.id == settings.defaultFolderId }?.displayTitle()
+                ?: folders.first().displayTitle(),
             onClick = {
                 val next = folders.cycleAfter { it.id == settings.defaultFolderId }
-                if (next != null) viewModel.update { it.copy(defaultFolderId = next.id) }
+                    ?: folders.first()
+                viewModel.update { it.copy(defaultFolderId = next.id) }
             },
         )
 
@@ -119,7 +128,13 @@ fun SettingsScreen(
         row(
             key = "clear-cache",
             title = stringResource(R.string.settings_clear_cache),
-            value = stringResource(R.string.settings_cache_size, Format.fileSize(uiState.cacheBytes)),
+            value = if (uiState.cacheBytes > 0) {
+                stringResource(R.string.settings_cache_size, Format.fileSize(uiState.cacheBytes))
+            } else if (uiState.isLoading) {
+                pending
+            } else {
+                stringResource(R.string.settings_cache_size, Format.fileSize(0))
+            },
             onClick = viewModel::clearCache,
         )
 
@@ -324,8 +339,19 @@ fun SettingsScreen(
             )
         }
 
-        if (uiState.isBusy) {
+        if (uiState.isBusy || uiState.isLoading) {
             item(key = "busy") { LoadingBar() }
+        }
+
+        uiState.error?.let { failed ->
+            item(key = "error") {
+                Text(
+                    text = stringResource(R.string.settings_load_failed, failed),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = TvGramColors.Danger,
+                    modifier = Modifier.padding(vertical = 8.dp),
+                )
+            }
         }
 
         if (visible.isEmpty()) {
@@ -741,6 +767,10 @@ private fun <T> List<T>.cycleAfter(isCurrent: (T) -> Boolean): T? {
 }
 
 private val TRACK_LANGUAGES = listOf("", "fa", "en", "ar", "tr")
+
+/** What the folder row offers before the account's own folders arrive. */
+private val BUILT_IN_FOLDERS: List<TgFolder> =
+    BuiltInFolder.entries.map(TgFolder::forBuiltIn)
 
 private fun AppLanguage.labelRes(): Int = when (this) {
     AppLanguage.SYSTEM -> R.string.settings_language_system

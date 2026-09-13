@@ -13,6 +13,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.VideoLibrary
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -34,11 +35,18 @@ import ir.tvgram.app.ui.common.TvIcon
 import ir.tvgram.app.ui.theme.TvGramColors
 import ir.tvgram.app.ui.theme.TvGramDimens
 
-/** The three places the app can be, top to bottom, as asked for. */
+/**
+ * Where the app can be, top to bottom.
+ *
+ * Proxy sits at the bottom on its own rather than inside settings: it is what
+ * you reach for when nothing is loading, and that is the worst possible moment
+ * to be scrolling through a settings list to find it.
+ */
 enum class Destination(val route: String) {
     MEDIA("media"),
     CHATS("chats"),
     SETTINGS("settings"),
+    PROXY("proxy"),
 }
 
 /**
@@ -124,10 +132,12 @@ private fun Destination.icon(): ImageVector = when (this) {
     Destination.MEDIA -> Icons.Filled.VideoLibrary
     Destination.CHATS -> Icons.AutoMirrored.Filled.Chat
     Destination.SETTINGS -> Icons.Filled.Settings
+    Destination.PROXY -> Icons.Filled.Shield
 }
 
 fun Destination.labelRes(): Int = when (this) {
     Destination.MEDIA -> R.string.nav_media
     Destination.CHATS -> R.string.nav_chats
     Destination.SETTINGS -> R.string.nav_settings
+    Destination.PROXY -> R.string.nav_proxy
 }

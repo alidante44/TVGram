@@ -22,6 +22,7 @@ import ir.tvgram.telegram.model.TgFolder
 import ir.tvgram.telegram.model.TgMediaItem
 import ir.tvgram.telegram.model.TgLiveStream
 import ir.tvgram.telegram.model.TgProxy
+import ir.tvgram.telegram.model.TgStreamChannel
 import ir.tvgram.telegram.model.TgMessage
 import ir.tvgram.telegram.model.TgUser
 import java.io.ByteArrayOutputStream
@@ -234,6 +235,21 @@ class FakeTelegramClient(private val context: Context) : TelegramClient {
     }
 
     override val videoChatUpdates: Flow<Long> = emptyFlow()
+
+    // Generated content has no real broadcast behind it, so the banner appears
+    // but pressing play says so rather than pretending.
+    override suspend fun joinLiveStream(groupCallId: Int): Boolean = false
+
+    override suspend fun leaveLiveStream(groupCallId: Int) = Unit
+
+    override suspend fun liveStreamChannels(groupCallId: Int): List<TgStreamChannel> = emptyList()
+
+    override suspend fun liveStreamSegment(
+        groupCallId: Int,
+        timeOffsetMs: Long,
+        scale: Int,
+        channelId: Int,
+    ): ByteArray? = null
 
     // --- proxies ----------------------------------------------------------
 

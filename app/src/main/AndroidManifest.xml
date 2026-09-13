@@ -46,6 +46,24 @@
                 <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+
+            <!-- A proxy link tapped anywhere on the television comes here, so
+                 it only ever has to be opened once rather than copied field by
+                 field into a form. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="tg" android:host="proxy" />
+                <data android:scheme="tg" android:host="socks" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="t.me" android:pathPrefix="/proxy" />
+                <data android:scheme="https" android:host="t.me" android:pathPrefix="/socks" />
+            </intent-filter>
         </activity>
     </application>
 

@@ -1,5 +1,14 @@
 package ir.tvgram.app.ui
 
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.window.Dialog
+import ir.tvgram.app.ui.common.TvButton
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -7,6 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -29,6 +39,7 @@ import ir.tvgram.app.ui.login.CredentialsScreen
 import ir.tvgram.app.ui.login.LoginScreen
 import ir.tvgram.app.ui.media.MediaScreen
 import ir.tvgram.app.ui.player.MediaPlayerOverlay
+import ir.tvgram.app.ui.proxy.ProxyScreen
 import ir.tvgram.app.ui.settings.SettingsScreen
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
@@ -43,6 +54,7 @@ fun TvGramApp(viewModel: RootViewModel = hiltViewModel()) {
     val connectionState by viewModel.connectionState.collectAsStateWithLifecycle()
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val isLocked by viewModel.isLocked.collectAsStateWithLifecycle()
+    val proxyLink by viewModel.proxyLink.collectAsStateWithLifecycle()
 
     // Deliberately not rememberSaveable: if the activity is recreated the
     // passcode is asked for again, which is the whole point of it.
@@ -68,6 +80,7 @@ fun TvGramApp(viewModel: RootViewModel = hiltViewModel()) {
                 is AuthState.Ready -> MainShell(
                     railSide = settings.railSide,
                     connectionState = connectionState,
+                    proxyLink = proxyLink,
                 )
 
                 else -> LoginScreen(state = state)
@@ -77,13 +90,31 @@ fun TvGramApp(viewModel: RootViewModel = hiltViewModel()) {
 }
 
 @Composable
-private fun MainShell(railSide: RailSide, connectionState: ConnectionState) {
+private fun MainShell(
+    railSide: RailSide,
+    connectionState: ConnectionState,
+    proxyLink: String?,
+) {
     var destination by rememberSaveable { mutableStateOf(Destination.MEDIA) }
     // Films, songs and photos all open the same player window, so there is one
     // place to learn rather than three.
     var playerOpen by remember { mutableStateOf(false) }
+    var confirmExit by remember { mutableStateOf(false) }
 
     val openMedia: (TgMediaItem) -> Unit = { playerOpen = true }
+
+    // A proxy link opened from outside should land somewhere the viewer can see
+    // whether it worked, so it brings the proxy screen up by itself.
+    LaunchedEffect(proxyLink) {
+        if (proxyLink != null) destination = Destination.PROXY
+    }
+
+    // Back steps home first, and only asks about leaving once there is nowhere
+    // left to step back to — a remote's back key is easy to press by accident,
+    // and dropping out of the app mid-film is a poor way to find that out.
+    BackHandler(enabled = !playerOpen && !confirmExit) {
+        if (destination != Destination.MEDIA) destination = Destination.MEDIA else confirmExit = true
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Row(modifier = Modifier.fillMaxSize()) {
@@ -99,6 +130,7 @@ private fun MainShell(railSide: RailSide, connectionState: ConnectionState) {
 
                     Destination.CHATS -> ChatsScreen(onOpenMedia = openMedia)
                     Destination.SETTINGS -> SettingsScreen()
+                    Destination.PROXY -> ProxyScreen()
                 }
             }
 
@@ -117,7 +149,47 @@ private fun MainShell(railSide: RailSide, connectionState: ConnectionState) {
         if (playerOpen) {
             MediaPlayerOverlay(onClose = { playerOpen = false })
         }
+
+        if (confirmExit) {
+            ExitDialog(onDismiss = { confirmExit = false })
+        }
     }
+}
+
+/** The one thing standing between a stray back press and a closed app. */
+@Composable
+private fun ExitDialog(onDismiss: () -> Unit) {
+    val activity = LocalContext.current.findActivity()
+    Dialog(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .background(TvGramColors.Surface, RoundedCornerShape(16.dp))
+                .padding(32.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.exit_confirm_title),
+                style = MaterialTheme.typography.titleLarge,
+                color = TvGramColors.OnBackground,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                TvButton(
+                    text = stringResource(R.string.exit_confirm_stay),
+                    onClick = onDismiss,
+                )
+                TvButton(
+                    text = stringResource(R.string.exit_confirm_leave),
+                    onClick = { activity?.finish() },
+                )
+            }
+        }
+    }
+}
+
+private tailrec fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
 }
 
 @Composable

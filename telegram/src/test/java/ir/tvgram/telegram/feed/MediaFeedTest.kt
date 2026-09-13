@@ -14,6 +14,7 @@ import ir.tvgram.telegram.model.TgFolder
 import ir.tvgram.telegram.model.TgMediaItem
 import ir.tvgram.telegram.model.TgLiveStream
 import ir.tvgram.telegram.model.TgProxy
+import ir.tvgram.telegram.model.TgStreamChannel
 import ir.tvgram.telegram.model.TgUser
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -191,6 +192,15 @@ class MediaFeedTest {
         override suspend fun downloadFully(fileId: Int, priority: Int): String = ""
         override suspend fun liveStream(chatId: Long): TgLiveStream? = null
         override val videoChatUpdates: Flow<Long> = emptyFlow()
+        override suspend fun joinLiveStream(groupCallId: Int): Boolean = false
+        override suspend fun leaveLiveStream(groupCallId: Int) = Unit
+        override suspend fun liveStreamChannels(groupCallId: Int): List<TgStreamChannel> = emptyList()
+        override suspend fun liveStreamSegment(
+            groupCallId: Int,
+            timeOffsetMs: Long,
+            scale: Int,
+            channelId: Int,
+        ): ByteArray? = null
         override suspend fun proxies(): List<TgProxy> = emptyList()
         override suspend fun addProxy(proxy: TgProxy): TgProxy? = null
         override suspend fun enableProxy(id: Int) = Unit

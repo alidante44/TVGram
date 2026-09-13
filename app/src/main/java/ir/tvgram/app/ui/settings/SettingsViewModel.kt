@@ -10,12 +10,16 @@ import ir.tvgram.telegram.model.TgFolder
 import ir.tvgram.telegram.model.TgProxy
 import ir.tvgram.telegram.model.TgUser
 import javax.inject.Inject
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 data class SettingsUiState(
     val user: TgUser? = null,
@@ -23,6 +27,9 @@ data class SettingsUiState(
     val cacheBytes: Long = 0,
     val isBusy: Boolean = false,
     val proxies: List<TgProxy> = emptyList(),
+    val isLoading: Boolean = false,
+    /** "2/4" style count of the lookups Telegram did not answer. */
+    val error: String? = null,
 ) {
     val activeProxy: TgProxy? get() = proxies.firstOrNull { it.isEnabled }
 }
@@ -43,16 +50,48 @@ class SettingsViewModel @Inject constructor(
         refresh()
     }
 
+    /**
+     * Loads the four things Telegram has to answer for, each on its own.
+     *
+     * They used to be gathered into one assignment, which meant a single slow
+     * or wedged call left the whole screen blank — no account, no folders, no
+     * cache size — with nothing to say why. Now each lands as it arrives, under
+     * its own deadline, so one bad answer costs one row.
+     */
     fun refresh() {
         viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            val failures = coroutineScope {
+                listOf(
+                    async {
+                        load { client.currentUser() }
+                            ?.also { _uiState.value = _uiState.value.copy(user = it) }
+                    },
+                    async {
+                        load { client.folders() }
+                            ?.also { _uiState.value = _uiState.value.copy(folders = it) }
+                    },
+                    async {
+                        load { client.cacheSize() }
+                            ?.also { _uiState.value = _uiState.value.copy(cacheBytes = it) }
+                    },
+                    async {
+                        load { client.proxies() }
+                            ?.also { _uiState.value = _uiState.value.copy(proxies = it) }
+                    },
+                ).awaitAll()
+            }.count { it == null }
+
             _uiState.value = _uiState.value.copy(
-                user = runCatching { client.currentUser() }.getOrNull(),
-                folders = runCatching { client.folders() }.getOrElse { emptyList() },
-                cacheBytes = runCatching { client.cacheSize() }.getOrDefault(0L),
-                proxies = runCatching { client.proxies() }.getOrElse { emptyList() },
+                isLoading = false,
+                error = if (failures > 0) "$failures/4" else null,
             )
         }
     }
+
+    /** Null when Telegram errored or took longer than a viewer would wait. */
+    private suspend fun <T> load(block: suspend () -> T): T? =
+        runCatching { withTimeoutOrNull(REQUEST_TIMEOUT_MS) { block() } }.getOrNull()
 
     fun setPasscode(passcode: String) {
         viewModelScope.launch { settingsRepository.setPasscode(passcode) }
@@ -88,11 +127,26 @@ class SettingsViewModel @Inject constructor(
 
     fun update(transform: (AppSettings) -> AppSettings) {
         viewModelScope.launch {
+            val before = settingsRepository.current()
             settingsRepository.update(transform)
-            // The cache ceiling is a TDLib-side setting, so push it through as
-            // soon as it changes rather than at the next start.
-            val current = settings.value
-            runCatching { client.setCacheLimit(current.cacheLimitBytes) }
+            val after = settingsRepository.current()
+
+            // Pushing the ceiling through means running TDLib's storage
+            // optimiser over the whole cache. Doing that after every tap — a
+            // toggle, a language change — made the settings screen feel dead,
+            // because the next request queued behind a full disk scan. Only the
+            // setting that actually changed is worth that.
+            if (after.cacheLimitBytes != before.cacheLimitBytes) {
+                runCatching { client.setCacheLimit(after.cacheLimitBytes) }
+                refreshCacheSize()
+            }
+        }
+    }
+
+    private fun refreshCacheSize() {
+        viewModelScope.launch {
+            load { client.cacheSize() }
+                ?.also { _uiState.value = _uiState.value.copy(cacheBytes = it) }
         }
     }
 
@@ -102,8 +156,7 @@ class SettingsViewModel @Inject constructor(
             runCatching { client.clearCache() }
             _uiState.value = _uiState.value.copy(
                 isBusy = false,
-                cacheBytes = runCatching { client.cacheSize() }.getOrDefault(0L),
-                proxies = runCatching { client.proxies() }.getOrElse { emptyList() },
+                cacheBytes = load { client.cacheSize() } ?: 0L,
             )
         }
     }
@@ -114,5 +167,10 @@ class SettingsViewModel @Inject constructor(
             runCatching { client.logOut() }
             _uiState.value = _uiState.value.copy(isBusy = false)
         }
+    }
+
+    private companion object {
+        /** Longer than a healthy round trip, short enough not to blank the screen. */
+        const val REQUEST_TIMEOUT_MS = 8_000L
     }
 }

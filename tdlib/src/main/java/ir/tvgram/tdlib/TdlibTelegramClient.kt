@@ -19,12 +19,14 @@ import ir.tvgram.telegram.model.TgFolder
 import ir.tvgram.telegram.model.TgLiveStream
 import ir.tvgram.telegram.model.TgMediaItem
 import ir.tvgram.telegram.model.TgProxy
+import ir.tvgram.telegram.model.TgStreamChannel
 import ir.tvgram.telegram.model.TgMessage
 import ir.tvgram.telegram.model.TgUser
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.BufferOverflow
+import kotlin.random.Random
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -394,6 +396,68 @@ class TdlibTelegramClient(
 
     override val videoChatUpdates: Flow<Long> = _videoChatUpdates.asSharedFlow()
 
+    /**
+     * Joins the call as a listener so the server will serve its stream.
+     *
+     * The payload is the minimal description a WebRTC listener sends for a
+     * broadcast — no ICE candidates, no fingerprints, just a synchronisation
+     * source — which is all Telegram checks before it will hand over stream
+     * segments to a participant. Producing a full payload would need tgcalls,
+     * Telegram's native WebRTC component, which TDLib does not ship; this is
+     * the part that can be done without it.
+     */
+    override suspend fun joinLiveStream(groupCallId: Int): Boolean {
+        val source = Random.nextInt(1, Int.MAX_VALUE)
+        val joined = connection.sendOrNull<TdApi.Text>(
+            TdApi.JoinVideoChat().apply {
+                this.groupCallId = groupCallId
+                participantId = null
+                joinParameters = TdApi.GroupCallJoinParameters().apply {
+                    audioSourceId = source
+                    payload = LISTENER_PAYLOAD.format(source)
+                    isMuted = true
+                    isMyVideoEnabled = false
+                }
+                inviteHash = ""
+            },
+        )
+        return joined != null
+    }
+
+    override suspend fun leaveLiveStream(groupCallId: Int) {
+        connection.sendOrNull<TdApi.Ok>(
+            TdApi.LeaveGroupCall().apply { this.groupCallId = groupCallId },
+        )
+    }
+
+    override suspend fun liveStreamChannels(groupCallId: Int): List<TgStreamChannel> =
+        connection.sendOrNull<TdApi.GroupCallStreams>(
+            TdApi.GetGroupCallStreams().apply { this.groupCallId = groupCallId },
+        )?.streams?.map { stream ->
+            TgStreamChannel(
+                channelId = stream.channelId,
+                scale = stream.scale,
+                timeOffsetMs = stream.timeOffset,
+            )
+        }.orEmpty()
+
+    override suspend fun liveStreamSegment(
+        groupCallId: Int,
+        timeOffsetMs: Long,
+        scale: Int,
+        channelId: Int,
+    ): ByteArray? = connection.sendOrNull<TdApi.Data>(
+        TdApi.GetGroupCallStreamSegment().apply {
+            this.groupCallId = groupCallId
+            timeOffset = timeOffsetMs
+            this.scale = scale
+            this.channelId = channelId
+            // The worst quality is the one a television over a domestic link
+            // can actually keep up with, and the only one always on offer.
+            videoQuality = TdApi.GroupCallVideoQualityMedium()
+        },
+    )?.data
+
     // --- proxies ----------------------------------------------------------
 
     override suspend fun proxies(): List<TgProxy> =
@@ -716,5 +780,9 @@ class TdlibTelegramClient(
         const val APP_VERSION = "TVGram 0.1.0"
         const val MAX_CHAT_LOAD_ROUNDS = 8
         const val FOLDER_SYNC_TIMEOUT_MS = 4_000L
+
+        /** What a listener with no camera and no microphone looks like on the wire. */
+        const val LISTENER_PAYLOAD =
+            """{"fingerprints":[],"pwd":"","ssrc":%d,"ssrc-groups":[],"ufrag":""}"""
     }
 }

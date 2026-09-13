@@ -37,7 +37,11 @@
     <string name="live_badge">زنده</string>
     <string name="live_title">پخش زنده</string>
     <string name="live_watching">%1$d نفر در حال تماشا</string>
-    <string name="live_unavailable">تماشای پخش زنده در این نسخه ممکن نیست</string>
+    <string name="live_watch">تماشای پخش زنده</string>
+    <string name="live_connecting">در حال وصل شدن به پخش زنده…</string>
+    <string name="live_join_refused">تلگرام اجازه‌ی پیوستن به این پخش را نداد</string>
+    <string name="live_no_channels">این پخش هیچ تصویری ارائه نمی‌کند</string>
+    <string name="live_no_segments">چیزی از پخش نرسید</string>
     <string name="settings_search_hint">جست‌وجو در تنظیمات…</string>
     <string name="media_empty">در این چت رسانه‌ای پیدا نشد</string>
     <string name="media_loading">در حال بارگذاری…</string>
@@ -117,8 +121,22 @@
     <string name="settings_proxy_type">نوع</string>
     <string name="settings_proxy_disable">اتصال مستقیم (بدون پروکسی)</string>
     <string name="settings_proxy_remove">حذف</string>
+    <string name="nav_proxy">پروکسی</string>
+    <string name="proxy_paste_hint">لینک پروکسی را اینجا بگذار — خودش تشخیص می‌دهد و وصل می‌شود.</string>
+    <string name="proxy_link_bad">این لینک پروکسی نیست</string>
+    <string name="proxy_connect">وصل شو</string>
+    <string name="proxy_empty">هنوز پروکسی‌ای اضافه نشده</string>
+    <string name="proxy_status_direct">اتصال مستقیم، بدون پروکسی</string>
+    <string name="proxy_status_working">وصل است</string>
+    <string name="proxy_status_failing">وصل نمی‌شود — پروکسی دیگری را امتحان کن یا خاموشش کن</string>
+    <string name="settings_value_pending">در حال گرفتن…</string>
+    <string name="settings_value_retry">نیامد — برای تلاش دوباره بزن</string>
+    <string name="settings_load_failed">%1$s مورد از تلگرام نیامد</string>
     <string name="action_save">ذخیره</string>
     <string name="action_close">بستن</string>
+    <string name="exit_confirm_title">از برنامه خارج می‌شوی؟</string>
+    <string name="exit_confirm_stay">نه، بمان</string>
+    <string name="exit_confirm_leave">بله، خروج</string>
     <string name="settings_section_telegram">تنظیمات تلگرام</string>
     <string name="settings_section_tv">تنظیمات اندروید تی‌وی</string>
 

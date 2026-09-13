@@ -101,6 +101,20 @@ data class TgLiveStream(
     val isRtmpStream: Boolean = false,
 )
 
+/**
+ * One audio or video track of a live stream, as the server currently offers it.
+ *
+ * [timeOffsetMs] is the newest moment available; segments are fetched backwards
+ * from there in steps of `1000 / 2^scale` milliseconds.
+ */
+data class TgStreamChannel(
+    val channelId: Int,
+    val scale: Int,
+    val timeOffsetMs: Long,
+) {
+    val segmentDurationMs: Long get() = 1000L shr scale.coerceIn(0, 1)
+}
+
 /** A file as TDLib currently knows it. */
 data class TgFile(
     val id: Int,

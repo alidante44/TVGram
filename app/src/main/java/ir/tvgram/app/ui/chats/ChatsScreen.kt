@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -20,7 +21,9 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -38,8 +41,10 @@ import ir.tvgram.app.ui.common.CenteredMessage
 import ir.tvgram.app.ui.common.FocusableSurface
 import ir.tvgram.app.ui.common.LoadingBar
 import ir.tvgram.app.ui.common.TelegramImage
+import ir.tvgram.app.ui.common.TvButton
 import ir.tvgram.app.ui.common.TvIcon
 import ir.tvgram.app.ui.common.TvTextField
+import ir.tvgram.app.ui.live.LiveOverlay
 import ir.tvgram.app.ui.theme.TvGramColors
 import ir.tvgram.app.ui.theme.TvGramDimens
 import ir.tvgram.app.util.Format
@@ -66,6 +71,7 @@ fun ChatsScreen(
     val messages by viewModel.messages.collectAsStateWithLifecycle()
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
+    var watching by remember { mutableStateOf<TgLiveStream?>(null) }
 
     val persianDates = remember(settings.language) {
         when (settings.language) {
@@ -99,7 +105,9 @@ fun ChatsScreen(
         )
 
         Column(modifier = Modifier.weight(1f).fillMaxHeight()) {
-            state.liveStream?.let { LiveBanner(stream = it) }
+            state.liveStream?.let { live ->
+                LiveBanner(stream = live, onWatch = { watching = live })
+            }
 
             Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
             when {
@@ -142,18 +150,22 @@ fun ChatsScreen(
             }
         }
     }
+
+    watching?.let { live ->
+        LiveOverlay(stream = live, onClose = { watching = null })
+    }
 }
 
 /**
- * Says that the chat is broadcasting right now.
+ * Says that the chat is broadcasting right now, and opens it.
  *
- * There is no play button: Telegram serves live segments only to a participant
- * of the group call, and joining one needs a WebRTC payload produced by
- * Telegram's own tgcalls library, which is not part of TDLib. Offering a button
- * that cannot work would be worse than saying so.
+ * Watching means joining the group call as a listener first — Telegram serves
+ * stream segments to participants only. Whether the server accepts a listener
+ * that was not introduced by tgcalls is settled when the button is pressed, so
+ * the failure, if it comes, is shown there rather than guessed at here.
  */
 @Composable
-private fun LiveBanner(stream: TgLiveStream) {
+private fun LiveBanner(stream: TgLiveStream, onWatch: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -183,12 +195,17 @@ private fun LiveBanner(stream: TgLiveStream) {
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                text = stringResource(R.string.live_watching, stream.participantCount) + " · " +
-                    stringResource(R.string.live_unavailable),
+                text = stringResource(R.string.live_watching, stream.participantCount),
                 style = MaterialTheme.typography.labelSmall,
                 color = TvGramColors.OnBackgroundMuted,
             )
         }
+        Spacer(modifier = Modifier.weight(1f))
+        TvButton(
+            text = stringResource(R.string.live_watch),
+            leadingIcon = Icons.Filled.PlayArrow,
+            onClick = onWatch,
+        )
     }
 }
 
