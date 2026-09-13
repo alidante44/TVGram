@@ -112,12 +112,16 @@ fun SettingsScreen(
         // account's own folders are still on their way — before, an empty list
         // meant an empty label and a click that did nothing at all.
         val folders = uiState.folders.ifEmpty { BUILT_IN_FOLDERS }
+        // A built-in folder's name is a string resource, so resolving it is a
+        // composable call — done here, where that is allowed, rather than inside
+        // the plain lambda the picker labels its options with.
+        val folderLabels = folders.associateWith { it.displayTitle() }
         choice(
             key = "default-folder",
             title = stringResource(R.string.settings_default_folder),
             current = folders.firstOrNull { it.id == settings.defaultFolderId } ?: folders.first(),
             options = folders,
-            label = { it.displayTitle() },
+            label = { folderLabels[it].orEmpty() },
             onPick = { folder -> viewModel.update { it.copy(defaultFolderId = folder.id) } },
         )
 
