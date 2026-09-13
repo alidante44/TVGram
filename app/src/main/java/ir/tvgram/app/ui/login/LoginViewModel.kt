@@ -3,6 +3,7 @@ package ir.tvgram.app.ui.login
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import ir.tvgram.app.settings.CredentialStore
 import ir.tvgram.telegram.TelegramClient
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -13,6 +14,7 @@ import kotlinx.coroutines.launch
 @HiltViewModel
 class LoginViewModel @Inject constructor(
     private val client: TelegramClient,
+    private val credentialStore: CredentialStore,
 ) : ViewModel() {
 
     private val _error = MutableStateFlow<String?>(null)
@@ -22,6 +24,14 @@ class LoginViewModel @Inject constructor(
     val busy: StateFlow<Boolean> = _busy.asStateFlow()
 
     fun requestQr() = submit { client.requestQrLogin() }
+
+    /**
+     * Starts a fresh Telegram session after signing out.
+     *
+     * Normally the client restarts itself the moment the old session closes;
+     * this is the button that does it by hand if that did not happen.
+     */
+    fun reconnect() = submit { client.start(credentialStore.current()) }
 
     fun submitPhone(phone: String) = submit { client.submitPhoneNumber(phone.trim()) }
 

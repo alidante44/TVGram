@@ -145,11 +145,17 @@ class TdlibTelegramClient(
 
     override suspend fun logOut() {
         _authState.value = AuthState.LoggingOut
-        runCatching { connection.send<TdApi.Ok>(TdApi.LogOut()) }
+        // Bounded, because a log out that the server never acknowledges must not
+        // leave the screen waiting on it. TDLib closes the session either way,
+        // and the closed state is what actually drives the app onwards.
+        runCatching {
+            withTimeoutOrNull(LOGOUT_TIMEOUT_MS) { connection.send<TdApi.Ok>(TdApi.LogOut()) }
+        }
         users.clear()
         chatCache.clear()
         archivedChatIds.clear()
         chatFolders.value = emptyList()
+        myUserId = 0
     }
 
     override suspend fun currentUser(): TgUser? {
@@ -643,9 +649,18 @@ class TdlibTelegramClient(
 
             is TdApi.AuthorizationStateReady -> _authState.value = AuthState.Ready
             is TdApi.AuthorizationStateLoggingOut -> _authState.value = AuthState.LoggingOut
+            // A closed client is finished, so signing out leaves nothing behind
+            // to talk to. Starting a fresh one puts the app back at the QR code
+            // instead of on the "please wait" screen it used to stay on until
+            // the app was uninstalled.
+            //
+            // pumpStarted deliberately stays true: the pump collects this
+            // object's update flow, not the client, so it survives the swap and
+            // clearing the flag would only add a second collector.
             is TdApi.AuthorizationStateClosed -> {
                 _authState.value = AuthState.Closed
-                pumpStarted = false
+                connection.reopen()
+                sendTdlibParameters()
             }
 
             else -> Unit
@@ -780,6 +795,9 @@ class TdlibTelegramClient(
         const val APP_VERSION = "TVGram 0.1.0"
         const val MAX_CHAT_LOAD_ROUNDS = 8
         const val FOLDER_SYNC_TIMEOUT_MS = 4_000L
+
+        /** TDLib closes the session regardless; this only bounds the wait. */
+        const val LOGOUT_TIMEOUT_MS = 6_000L
 
         /** What a listener with no camera and no microphone looks like on the wire. */
         const val LISTENER_PAYLOAD =

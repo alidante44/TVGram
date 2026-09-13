@@ -65,6 +65,8 @@
     <string name="login_continue">ادامه</string>
     <string name="login_connecting">در حال اتصال…</string>
     <string name="login_waiting">لطفاً صبر کنید…</string>
+    <string name="login_signed_out">از حساب خارج شدی.</string>
+    <string name="login_sign_in_again">ورود دوباره</string>
 
     <!-- Credentials setup -->
     <string name="setup_title">کلیدهای API لازم است</string>
@@ -165,6 +167,7 @@
     <string name="settings_seek_step">گام جست‌وجو</string>
     <string name="settings_seek_step_value">%1$d ثانیه</string>
     <string name="settings_preferred_audio">زبان ترجیحی صدا</string>
+    <string name="settings_track_any">هر زبانی</string>
     <string name="settings_preferred_subtitle">زبان ترجیحی زیرنویس</string>
     <string name="settings_hardware_decoding">دیکد سخت‌افزاری</string>
     <string name="settings_keep_screen_on">روشن نگه داشتن صفحه هنگام پخش</string>

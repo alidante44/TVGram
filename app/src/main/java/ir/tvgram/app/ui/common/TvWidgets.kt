@@ -1,6 +1,7 @@
 package ir.tvgram.app.ui.common
 
 import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
@@ -261,6 +262,41 @@ fun LoadingBar(modifier: Modifier = Modifier) {
                 .width(width * 0.3f)
                 .height(3.dp)
                 .background(TvGramColors.Accent),
+        )
+    }
+}
+
+/**
+ * A switch that looks like a switch.
+ *
+ * It replaced an "ON"/"OFF" label, which read as a value rather than something
+ * you could change — the complaint being that settings rows gave no sign they
+ * were controls at all. The knob slides, so a press has a visible result even
+ * before the setting is written.
+ */
+@Composable
+fun TvSwitch(checked: Boolean, modifier: Modifier = Modifier) {
+    val knobOffset by animateDpAsState(
+        targetValue = if (checked) 22.dp else 2.dp,
+        label = "switch-knob",
+    )
+    Box(
+        modifier = modifier
+            .size(width = 48.dp, height = 28.dp)
+            .background(
+                if (checked) TvGramColors.Accent else TvGramColors.SurfaceElevated,
+                RoundedCornerShape(14.dp),
+            ),
+    ) {
+        Box(
+            modifier = Modifier
+                .align(Alignment.CenterStart)
+                .offset(x = knobOffset)
+                .size(24.dp)
+                .background(
+                    if (checked) TvGramColors.Background else TvGramColors.OnBackgroundMuted,
+                    RoundedCornerShape(12.dp),
+                ),
         )
     }
 }

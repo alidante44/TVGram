@@ -52,6 +52,23 @@ class TdlibConnection {
     }
 
     /**
+     * Throws away the closed client and starts a fresh one.
+     *
+     * A TDLib client that has reached the closed state is finished — it answers
+     * nothing further, and the only way on is a new instance. That is what
+     * happens after a log out, and without this the app sat on the "please
+     * wait" screen forever with a dead client behind it.
+     *
+     * The update flow belongs to this object rather than to the client, so the
+     * pump collecting it keeps working across the swap and must not be
+     * restarted.
+     */
+    fun reopen() {
+        client = null
+        open()
+    }
+
+    /**
      * Sends [query] and suspends until TDLib answers.
      *
      * @throws TelegramException when TDLib replies with an error.

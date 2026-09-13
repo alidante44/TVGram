@@ -128,8 +128,7 @@ class SettingsViewModel @Inject constructor(
     fun update(transform: (AppSettings) -> AppSettings) {
         viewModelScope.launch {
             val before = settingsRepository.current()
-            settingsRepository.update(transform)
-            val after = settingsRepository.current()
+            val after = settingsRepository.update(transform)
 
             // Pushing the ceiling through means running TDLib's storage
             // optimiser over the whole cache. Doing that after every tap — a

@@ -58,6 +58,8 @@
     <string name="login_continue">Continue</string>
     <string name="login_connecting">Connecting…</string>
     <string name="login_waiting">Please wait…</string>
+    <string name="login_signed_out">You are signed out.</string>
+    <string name="login_sign_in_again">Sign in again</string>
 
     <string name="setup_title">API credentials required</string>
     <string name="setup_body">This build has no api_id/api_hash. Get them from my.telegram.org and put them in local.properties, or enter them here.</string>
@@ -154,6 +156,7 @@
     <string name="settings_seek_step">Seek step</string>
     <string name="settings_seek_step_value">%1$d seconds</string>
     <string name="settings_preferred_audio">Preferred audio language</string>
+    <string name="settings_track_any">Any language</string>
     <string name="settings_preferred_subtitle">Preferred subtitle language</string>
     <string name="settings_hardware_decoding">Hardware decoding</string>
     <string name="settings_keep_screen_on">Keep screen on during playback</string>

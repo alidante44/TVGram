@@ -99,6 +99,24 @@ fun LoginScreen(
                     },
                 )
 
+                // Signing out closes the TDLib session, and a fresh one starts
+                // by itself. This is the way back if that ever fails — without
+                // it the only escape was reinstalling the app.
+                state is AuthState.Closed -> Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(20.dp),
+                ) {
+                    Text(
+                        text = stringResource(R.string.login_signed_out),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = TvGramColors.OnBackgroundMuted,
+                    )
+                    TvButton(
+                        text = stringResource(R.string.login_sign_in_again),
+                        onClick = viewModel::reconnect,
+                    )
+                }
+
                 else -> Text(
                     text = stringResource(R.string.login_waiting),
                     style = MaterialTheme.typography.bodyLarge,

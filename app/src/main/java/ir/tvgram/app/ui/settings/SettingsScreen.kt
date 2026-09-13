@@ -8,18 +8,27 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
@@ -38,6 +47,8 @@ import ir.tvgram.app.settings.RailSide
 import ir.tvgram.app.ui.common.FocusableSurface
 import ir.tvgram.app.ui.common.LoadingBar
 import ir.tvgram.app.ui.common.TvButton
+import ir.tvgram.app.ui.common.TvIcon
+import ir.tvgram.app.ui.common.TvSwitch
 import ir.tvgram.app.ui.common.TvTextField
 import ir.tvgram.app.ui.media.displayTitle
 import ir.tvgram.app.ui.theme.TvGramColors
@@ -72,10 +83,15 @@ fun SettingsScreen(
     var editingPasscode by remember { mutableStateOf(false) }
     var addingProxy by remember { mutableStateOf(false) }
 
+    // The open picker is held here rather than inside a row, because a row
+    // scrolled out of the lazy list leaves the composition and would take its
+    // dialog with it.
+    var picker by remember { mutableStateOf<PickerRequest?>(null) }
+
     // Built every recomposition so each row reads the current value, then
     // filtered by the search box. Rows are described rather than emitted
     // because LazyListScope is not composable, and stringResource is.
-    val rows = settingsRows {
+    val rows = settingsRows(onOpenPicker = { picker = it }) {
         // --- Telegram -----------------------------------------------------
         section(stringResource(R.string.settings_section_telegram))
 
@@ -96,16 +112,13 @@ fun SettingsScreen(
         // account's own folders are still on their way — before, an empty list
         // meant an empty label and a click that did nothing at all.
         val folders = uiState.folders.ifEmpty { BUILT_IN_FOLDERS }
-        row(
+        choice(
             key = "default-folder",
             title = stringResource(R.string.settings_default_folder),
-            value = folders.firstOrNull { it.id == settings.defaultFolderId }?.displayTitle()
-                ?: folders.first().displayTitle(),
-            onClick = {
-                val next = folders.cycleAfter { it.id == settings.defaultFolderId }
-                    ?: folders.first()
-                viewModel.update { it.copy(defaultFolderId = next.id) }
-            },
+            current = folders.firstOrNull { it.id == settings.defaultFolderId } ?: folders.first(),
+            options = folders,
+            label = { it.displayTitle() },
+            onPick = { folder -> viewModel.update { it.copy(defaultFolderId = folder.id) } },
         )
 
         toggle(
@@ -115,14 +128,13 @@ fun SettingsScreen(
             onToggle = { viewModel.update { s -> s.copy(includeArchived = !s.includeArchived) } },
         )
 
-        row(
+        choice(
             key = "cache-limit",
             title = stringResource(R.string.settings_cache_limit),
-            value = Format.fileSize(settings.cacheLimitBytes),
-            onClick = {
-                val next = AppSettings.CACHE_LIMIT_CHOICES.cycleAfter { it == settings.cacheLimitBytes }
-                if (next != null) viewModel.update { it.copy(cacheLimitBytes = next) }
-            },
+            current = settings.cacheLimitBytes,
+            options = AppSettings.CACHE_LIMIT_CHOICES,
+            label = { Format.fileSize(it) },
+            onPick = { bytes -> viewModel.update { it.copy(cacheLimitBytes = bytes) } },
         )
 
         row(
@@ -138,29 +150,22 @@ fun SettingsScreen(
             onClick = viewModel::clearCache,
         )
 
-        row(
+        choice(
             key = "download-priority",
             title = stringResource(R.string.settings_download_priority),
-            value = settings.downloadPriority.toString(),
-            onClick = {
-                val next = when (settings.downloadPriority) {
-                    1 -> 8
-                    8 -> 16
-                    16 -> 32
-                    else -> 1
-                }
-                viewModel.update { it.copy(downloadPriority = next) }
-            },
+            current = settings.downloadPriority,
+            options = DOWNLOAD_PRIORITIES,
+            label = Int::toString,
+            onPick = { priority -> viewModel.update { it.copy(downloadPriority = priority) } },
         )
 
-        row(
+        choice(
             key = "index-depth",
             title = stringResource(R.string.settings_index_depth),
-            value = settings.indexDepth.toString(),
-            onClick = {
-                val next = AppSettings.INDEX_DEPTH_CHOICES.cycleAfter { it == settings.indexDepth }
-                if (next != null) viewModel.update { it.copy(indexDepth = next) }
-            },
+            current = settings.indexDepth,
+            options = AppSettings.INDEX_DEPTH_CHOICES,
+            label = Int::toString,
+            onPick = { depth -> viewModel.update { it.copy(indexDepth = depth) } },
         )
 
         // --- Proxy --------------------------------------------------------
@@ -214,35 +219,34 @@ fun SettingsScreen(
             onClick = { editingPasscode = true },
         )
 
-        row(
+        val languageLabels = AppLanguage.entries.associateWith { stringResource(it.labelRes()) }
+        choice(
             key = "language",
             title = stringResource(R.string.settings_language),
-            value = stringResource(settings.language.labelRes()),
+            current = settings.language,
+            options = AppLanguage.entries,
+            label = { languageLabels[it].orEmpty() },
             footnote = stringResource(R.string.settings_restart_needed),
-            onClick = {
-                val next = AppLanguage.entries.cycleAfter { it == settings.language }
-                if (next != null) viewModel.update { it.copy(language = next) }
-            },
+            onPick = { language -> viewModel.update { it.copy(language = language) } },
         )
 
-        row(
+        val railLabels = RailSide.entries.associateWith { stringResource(it.labelRes()) }
+        choice(
             key = "rail-side",
             title = stringResource(R.string.settings_rail_side),
-            value = stringResource(settings.railSide.labelRes()),
-            onClick = {
-                val next = RailSide.entries.cycleAfter { it == settings.railSide }
-                if (next != null) viewModel.update { it.copy(railSide = next) }
-            },
+            current = settings.railSide,
+            options = RailSide.entries,
+            label = { railLabels[it].orEmpty() },
+            onPick = { side -> viewModel.update { it.copy(railSide = side) } },
         )
 
-        row(
+        choice(
             key = "grid-columns",
             title = stringResource(R.string.settings_grid_columns),
-            value = settings.gridColumns.toString(),
-            onClick = {
-                val next = AppSettings.GRID_COLUMN_CHOICES.cycleAfter { it == settings.gridColumns }
-                if (next != null) viewModel.update { it.copy(gridColumns = next) }
-            },
+            current = settings.gridColumns,
+            options = AppSettings.GRID_COLUMN_CHOICES,
+            label = Int::toString,
+            onPick = { columns -> viewModel.update { it.copy(gridColumns = columns) } },
         )
 
         toggle(
@@ -259,36 +263,36 @@ fun SettingsScreen(
             onToggle = { viewModel.update { s -> s.copy(resumePlayback = !s.resumePlayback) } },
         )
 
-        row(
+        val seekLabels = AppSettings.SEEK_STEP_CHOICES.associateWith {
+            stringResource(R.string.settings_seek_step_value, it)
+        }
+        choice(
             key = "seek-step",
             title = stringResource(R.string.settings_seek_step),
-            value = stringResource(R.string.settings_seek_step_value, settings.seekStepSeconds),
-            onClick = {
-                val next = AppSettings.SEEK_STEP_CHOICES.cycleAfter { it == settings.seekStepSeconds }
-                if (next != null) viewModel.update { it.copy(seekStepSeconds = next) }
-            },
+            current = settings.seekStepSeconds,
+            options = AppSettings.SEEK_STEP_CHOICES,
+            label = { seekLabels[it].orEmpty() },
+            onPick = { seconds -> viewModel.update { it.copy(seekStepSeconds = seconds) } },
         )
 
-        row(
+        val anyLanguage = stringResource(R.string.settings_track_any)
+        choice(
             key = "audio-language",
             title = stringResource(R.string.settings_preferred_audio),
-            value = settings.preferredAudioLanguage.ifBlank { "—" },
-            onClick = {
-                val next = TRACK_LANGUAGES.cycleAfter { it == settings.preferredAudioLanguage }
-                if (next != null) viewModel.update { it.copy(preferredAudioLanguage = next) }
-            },
+            current = settings.preferredAudioLanguage,
+            options = TRACK_LANGUAGES,
+            label = { it.ifBlank { anyLanguage } },
+            onPick = { tag -> viewModel.update { it.copy(preferredAudioLanguage = tag) } },
         )
 
-        row(
+        val subtitlesOff = stringResource(R.string.player_subtitle_off)
+        choice(
             key = "subtitle-language",
             title = stringResource(R.string.settings_preferred_subtitle),
-            value = settings.preferredSubtitleLanguage.ifBlank {
-                stringResource(R.string.player_subtitle_off)
-            },
-            onClick = {
-                val next = TRACK_LANGUAGES.cycleAfter { it == settings.preferredSubtitleLanguage }
-                if (next != null) viewModel.update { it.copy(preferredSubtitleLanguage = next) }
-            },
+            current = settings.preferredSubtitleLanguage,
+            options = TRACK_LANGUAGES,
+            label = { it.ifBlank { subtitlesOff } },
+            onPick = { tag -> viewModel.update { it.copy(preferredSubtitleLanguage = tag) } },
         )
 
         toggle(
@@ -322,50 +326,65 @@ fun SettingsScreen(
 
     val visible = rows.filtered(query)
 
-    LazyColumn(
-        modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(
-            horizontal = TvGramDimens.ScreenPaddingHorizontal,
-            vertical = TvGramDimens.ScreenPaddingVertical,
-        ),
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(
+                start = TvGramDimens.ScreenPaddingHorizontal,
+                end = TvGramDimens.ScreenPaddingHorizontal,
+                top = TvGramDimens.ScreenPaddingVertical,
+            )
+            // A television is wide enough that a full-width row leaves the value
+            // stranded an arm's length from its title.
+            .widthIn(max = SETTINGS_CONTENT_WIDTH),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        item(key = "search") {
-            TvTextField(
-                value = query,
-                onValueChange = { query = it },
-                placeholder = stringResource(R.string.settings_search_hint),
-                modifier = Modifier.fillMaxWidth(0.5f),
-            )
-        }
+        // Outside the list on purpose: as the first item it scrolled away with
+        // everything else and took the top of the first section heading with it.
+        TvTextField(
+            value = query,
+            onValueChange = { query = it },
+            placeholder = stringResource(R.string.settings_search_hint),
+            modifier = Modifier.fillMaxWidth(0.5f),
+        )
 
-        if (uiState.isBusy || uiState.isLoading) {
-            item(key = "busy") { LoadingBar() }
-        }
-
-        uiState.error?.let { failed ->
-            item(key = "error") {
-                Text(
-                    text = stringResource(R.string.settings_load_failed, failed),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = TvGramColors.Danger,
-                    modifier = Modifier.padding(vertical = 8.dp),
-                )
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(bottom = TvGramDimens.ScreenPaddingVertical),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            if (uiState.isBusy || uiState.isLoading) {
+                item(key = "busy") { LoadingBar() }
             }
-        }
 
-        if (visible.isEmpty()) {
-            item(key = "empty") {
-                Text(
-                    text = stringResource(R.string.search_no_results),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = TvGramColors.OnBackgroundMuted,
-                    modifier = Modifier.padding(vertical = 32.dp),
-                )
+            uiState.error?.let { failed ->
+                item(key = "error") {
+                    Text(
+                        text = stringResource(R.string.settings_load_failed, failed),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = TvGramColors.Danger,
+                        modifier = Modifier.padding(vertical = 8.dp),
+                    )
+                }
             }
-        }
 
-        items(visible, key = { it.key }) { it.content() }
+            if (visible.isEmpty()) {
+                item(key = "empty") {
+                    Text(
+                        text = stringResource(R.string.search_no_results),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = TvGramColors.OnBackgroundMuted,
+                        modifier = Modifier.padding(vertical = 32.dp),
+                    )
+                }
+            }
+
+            items(visible, key = { it.key }) { it.content() }
+        }
+    }
+
+    picker?.let { request ->
+        PickerDialog(request = request, onClose = { picker = null })
     }
 
     if (editingPasscode) {
@@ -396,11 +415,19 @@ fun SettingsScreen(
  * resources and the current setting value as it is described.
  */
 @Composable
-private fun settingsRows(content: @Composable SettingsRows.() -> Unit): SettingsRows {
-    val rows = SettingsRows()
+private fun settingsRows(
+    onOpenPicker: (PickerRequest) -> Unit,
+    content: @Composable SettingsRows.() -> Unit,
+): SettingsRows {
+    val rows = SettingsRows(onOpenPicker)
     rows.content()
     return rows
 }
+
+/** A list of choices waiting to be shown, with what to do about each one. */
+private class PickerRequest(val title: String, val options: List<PickerOption>)
+
+private class PickerOption(val label: String, val selected: Boolean, val onPick: () -> Unit)
 
 private class SettingsEntry(
     val key: String,
@@ -413,7 +440,7 @@ private class SettingsEntry(
  * Collects the rows so they can be filtered before the lazy list emits them.
  * Each row keeps the text the search box matches against.
  */
-private class SettingsRows {
+private class SettingsRows(private val onOpenPicker: (PickerRequest) -> Unit) {
     private val rows = mutableListOf<SettingsEntry>()
 
     fun section(title: String) {
@@ -431,6 +458,45 @@ private class SettingsRows {
     ) {
         rows += SettingsEntry(key, "$title $value $search", isSection = false) {
             SettingRow(title, value, onClick, footnote, destructive)
+        }
+    }
+
+    /**
+     * A setting with a fixed set of values, shown as a list to pick from.
+     *
+     * Rows used to step to the next value on every press. That hid what the
+     * choices were, took several presses to reach the one you wanted, and wrote
+     * to disk each time, so it felt slow and gave no sign of what it had done.
+     * Opening a list costs nothing and writes once.
+     */
+    fun <T> choice(
+        key: String,
+        title: String,
+        current: T,
+        options: List<T>,
+        label: (T) -> String,
+        onPick: (T) -> Unit,
+        footnote: String? = null,
+    ) {
+        if (options.isEmpty()) return
+        val currentLabel = label(current)
+        rows += SettingsEntry(key, "$title $currentLabel", isSection = false) {
+            SettingRow(
+                title = title,
+                value = currentLabel,
+                footnote = footnote,
+                opensPicker = true,
+                onClick = {
+                    onOpenPicker(
+                        PickerRequest(
+                            title = title,
+                            options = options.map { option ->
+                                PickerOption(label(option), option == current) { onPick(option) }
+                            },
+                        ),
+                    )
+                },
+            )
         }
     }
 
@@ -456,8 +522,84 @@ private fun SectionHeader(title: String) {
         text = title,
         style = MaterialTheme.typography.titleLarge,
         color = TvGramColors.Accent,
-        modifier = Modifier.padding(top = 24.dp, bottom = 8.dp),
+        modifier = Modifier.padding(top = 12.dp, bottom = 8.dp),
     )
+}
+
+/**
+ * The list of values behind a setting.
+ *
+ * The current one starts focused, so the D-pad lands where the viewer already
+ * is and one press either side moves to a neighbour.
+ */
+@Composable
+private fun PickerDialog(request: PickerRequest, onClose: () -> Unit) {
+    val selectedFocus = remember { FocusRequester() }
+    val selectedIndex = request.options.indexOfFirst { it.selected }
+
+    LaunchedEffect(request) {
+        if (selectedIndex >= 0) runCatching { selectedFocus.requestFocus() }
+    }
+
+    SettingsDialog(title = request.title, onClose = onClose) {
+        LazyColumn(
+            modifier = Modifier.heightIn(max = PICKER_MAX_HEIGHT),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            itemsIndexed(request.options) { index, option ->
+                FocusableSurface(
+                    onClick = {
+                        option.onPick()
+                        onClose()
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .then(
+                            if (index == selectedIndex) {
+                                Modifier.focusRequester(selectedFocus)
+                            } else {
+                                Modifier
+                            },
+                        ),
+                    selected = option.selected,
+                    shape = RoundedCornerShape(10.dp),
+                    focusScale = 1f,
+                    background = if (option.selected) {
+                        TvGramColors.AccentMuted
+                    } else {
+                        TvGramColors.SurfaceElevated
+                    },
+                    focusedBackground = TvGramColors.Accent,
+                ) { focused ->
+                    Row(
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        val contentColor =
+                            if (focused) TvGramColors.Background else TvGramColors.OnBackground
+                        Text(
+                            text = option.label,
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = contentColor,
+                            modifier = Modifier.weight(1f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        if (option.selected) {
+                            TvIcon(
+                                Icons.Filled.Check,
+                                contentDescription = null,
+                                tint = contentColor,
+                                size = 20.dp,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        TvButton(text = stringResource(R.string.action_close), onClick = onClose)
+    }
 }
 
 @Composable
@@ -467,6 +609,7 @@ private fun SettingRow(
     onClick: () -> Unit,
     footnote: String? = null,
     destructive: Boolean = false,
+    opensPicker: Boolean = false,
 ) {
     FocusableSurface(
         onClick = onClick,
@@ -477,12 +620,19 @@ private fun SettingRow(
         focusedBackground = if (destructive) TvGramColors.Danger else TvGramColors.Accent,
     ) { focused ->
         Row(
-            modifier = Modifier.padding(horizontal = 24.dp, vertical = 18.dp),
+            modifier = Modifier
+                .heightIn(min = SETTINGS_ROW_HEIGHT)
+                .padding(horizontal = 24.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             val contentColor = if (focused) TvGramColors.Background else TvGramColors.OnBackground
-            Column(modifier = Modifier.fillMaxWidth(0.5f)) {
+            val mutedColor =
+                if (focused) TvGramColors.Background else TvGramColors.OnBackgroundMuted
+
+            // Title at the start, value at the end: the old half-width column
+            // left every value floating in the middle of the row.
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = title,
                     style = MaterialTheme.typography.bodyLarge,
@@ -492,17 +642,26 @@ private fun SettingRow(
                     Text(
                         text = it,
                         style = MaterialTheme.typography.labelSmall,
-                        color = if (focused) TvGramColors.Background else TvGramColors.OnBackgroundMuted,
+                        color = mutedColor,
                     )
                 }
             }
             Text(
                 text = value,
                 style = MaterialTheme.typography.bodyMedium,
-                color = if (focused) TvGramColors.Background else TvGramColors.OnBackgroundMuted,
+                color = mutedColor,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
+            // Says the row opens something, rather than being a value on its own.
+            if (opensPicker) {
+                TvIcon(
+                    Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = null,
+                    tint = mutedColor,
+                    size = 20.dp,
+                )
+            }
         }
     }
 }
@@ -518,31 +677,19 @@ private fun ToggleRow(title: String, checked: Boolean, onToggle: () -> Unit) {
         focusedBackground = TvGramColors.Accent,
     ) { focused ->
         Row(
-            modifier = Modifier.padding(horizontal = 24.dp, vertical = 18.dp),
+            modifier = Modifier
+                .heightIn(min = SETTINGS_ROW_HEIGHT)
+                .padding(horizontal = 24.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            val contentColor = if (focused) TvGramColors.Background else TvGramColors.OnBackground
             Text(
                 text = title,
                 style = MaterialTheme.typography.bodyLarge,
-                color = contentColor,
-                modifier = Modifier.fillMaxWidth(0.7f),
+                color = if (focused) TvGramColors.Background else TvGramColors.OnBackground,
+                modifier = Modifier.weight(1f),
             )
-            Box(
-                modifier = Modifier
-                    .background(
-                        if (checked) TvGramColors.Accent else TvGramColors.SurfaceElevated,
-                        RoundedCornerShape(12.dp),
-                    )
-                    .padding(horizontal = 16.dp, vertical = 6.dp),
-            ) {
-                Text(
-                    text = if (checked) "ON" else "OFF",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = if (checked) TvGramColors.Background else TvGramColors.OnBackgroundMuted,
-                )
-            }
+            TvSwitch(checked = checked)
         }
     }
 }
@@ -663,11 +810,36 @@ private fun ProxyDialog(onSave: (TgProxy) -> Unit, onClose: () -> Unit) {
         (kind != ProxyKind.MTPROTO || secret.isNotBlank())
 
     SettingsDialog(title = stringResource(R.string.settings_proxy_add), onClose = onClose) {
-        SettingRow(
-            title = stringResource(R.string.settings_proxy_type),
-            value = kind.name.lowercase(),
-            onClick = { kind = ProxyKind.entries.cycleAfter { it == kind } ?: kind },
+        // Three kinds fit side by side, so they are all visible at once rather
+        // than hidden behind a second dialog opened from inside this one.
+        Text(
+            text = stringResource(R.string.settings_proxy_type),
+            style = MaterialTheme.typography.labelSmall,
+            color = TvGramColors.OnBackgroundMuted,
         )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            ProxyKind.entries.forEach { option ->
+                FocusableSurface(
+                    onClick = { kind = option },
+                    selected = option == kind,
+                    shape = RoundedCornerShape(10.dp),
+                    focusScale = 1f,
+                    background = if (option == kind) {
+                        TvGramColors.AccentMuted
+                    } else {
+                        TvGramColors.SurfaceElevated
+                    },
+                    focusedBackground = TvGramColors.Accent,
+                ) { focused ->
+                    Text(
+                        text = option.name.lowercase(),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = if (focused) TvGramColors.Background else TvGramColors.OnBackground,
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
+                    )
+                }
+            }
+        }
         TvTextField(
             value = server,
             onValueChange = { server = it.trim() },
@@ -759,14 +931,18 @@ private fun SettingsDialog(
 
 // --- helpers --------------------------------------------------------------
 
-/** Steps to the next choice, wrapping around — the whole control is one click. */
-private fun <T> List<T>.cycleAfter(isCurrent: (T) -> Boolean): T? {
-    if (isEmpty()) return null
-    val index = indexOfFirst(isCurrent)
-    return this[(index + 1).mod(size)]
-}
+/** Even heights, so the list reads as a column rather than a pile. */
+private val SETTINGS_ROW_HEIGHT = 68.dp
+
+/** Wide enough to read, narrow enough that a value stays near its title. */
+private val SETTINGS_CONTENT_WIDTH = 900.dp
+
+private val PICKER_MAX_HEIGHT = 420.dp
 
 private val TRACK_LANGUAGES = listOf("", "fa", "en", "ar", "tr")
+
+/** TDLib takes 1-32; these are the steps worth offering. */
+private val DOWNLOAD_PRIORITIES = listOf(1, 8, 16, 32)
 
 /** What the folder row offers before the account's own folders arrive. */
 private val BUILT_IN_FOLDERS: List<TgFolder> =

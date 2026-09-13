@@ -26,8 +26,9 @@ class SettingsRepository @Inject constructor(
     /** The stored settings right now, without waiting on the flow. */
     suspend fun current(): AppSettings = settings.first()
 
-    suspend fun update(transform: (AppSettings) -> AppSettings) {
-        context.dataStore.edit { preferences ->
+    /** Returns what was stored, so a caller does not have to read it back. */
+    suspend fun update(transform: (AppSettings) -> AppSettings): AppSettings {
+        val written = context.dataStore.edit { preferences ->
             val updated = transform(toSettings(preferences))
             preferences[Keys.DEFAULT_FOLDER] = updated.defaultFolderId
             preferences[Keys.INCLUDE_ARCHIVED] = updated.includeArchived
@@ -50,12 +51,18 @@ class SettingsRepository @Inject constructor(
             preferences[Keys.MATCH_FRAME_RATE] = updated.matchFrameRate
             preferences[Keys.PASSCODE_SALT] = updated.passcodeSalt
             preferences[Keys.PASSCODE_HASH] = updated.passcodeHash
-
-            // The chosen locale has to be readable before Hilt or coroutines are
-            // available — Activity.attachBaseContext runs first — so it is also
-            // mirrored into a plain SharedPreferences file.
-            LocalePreferences.write(context, updated.language)
         }
+
+        val stored = toSettings(written)
+
+        // The chosen locale has to be readable before Hilt or coroutines are
+        // available — Activity.attachBaseContext runs first — so it is also
+        // mirrored into a plain SharedPreferences file. It happens after the
+        // edit rather than inside it: DataStore may run that block again if two
+        // writes collide, and a side effect does not belong somewhere that can
+        // be replayed.
+        LocalePreferences.write(context, stored.language)
+        return stored
     }
 
     /** Replaces the passcode. An empty code removes the lock. */

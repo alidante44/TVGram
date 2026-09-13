@@ -3,18 +3,16 @@ package ir.tvgram.app.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
-import ir.tvgram.app.BuildConfig
 import ir.tvgram.app.settings.AppSettings
+import ir.tvgram.app.settings.CredentialStore
 import ir.tvgram.app.settings.PendingProxyLink
 import ir.tvgram.app.settings.SettingsRepository
 import ir.tvgram.telegram.TelegramClient
 import ir.tvgram.telegram.model.AuthState
 import ir.tvgram.telegram.model.ConnectionState
-import ir.tvgram.telegram.model.TelegramCredentials
 import javax.inject.Inject
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -23,6 +21,7 @@ import kotlinx.coroutines.launch
 class RootViewModel @Inject constructor(
     private val client: TelegramClient,
     private val settingsRepository: SettingsRepository,
+    private val credentialStore: CredentialStore,
     pendingProxyLink: PendingProxyLink,
 ) : ViewModel() {
 
@@ -50,18 +49,9 @@ class RootViewModel @Inject constructor(
         viewModelScope.launch { connect() }
     }
 
-    /**
-     * Credentials come from the build (local.properties / CI secrets) and can be
-     * overridden at runtime, which is what makes an APK without baked-in keys
-     * still usable.
-     */
     private suspend fun connect() {
-        val stored = settingsRepository.settings.first()
-        val credentials = TelegramCredentials(
-            apiId = stored.apiIdOverride.takeIf { it != 0 } ?: BuildConfig.TELEGRAM_API_ID,
-            apiHash = stored.apiHashOverride.ifBlank { BuildConfig.TELEGRAM_API_HASH },
-        )
-        client.start(credentials)
+        client.start(credentialStore.current())
+        val stored = settingsRepository.current()
         if (stored.cacheLimitBytes > 0) {
             runCatching { client.setCacheLimit(stored.cacheLimitBytes) }
         }

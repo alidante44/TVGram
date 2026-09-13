@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -105,7 +106,11 @@ private fun RailItem(
         onFocusChanged = onFocusChanged,
     ) { focused ->
         Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
+            // A fixed minimum keeps every item the same height whether or not
+            // its label is showing, so the icons stay in a straight column.
+            modifier = Modifier
+                .heightIn(min = RailItemHeight)
+                .padding(horizontal = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
@@ -127,6 +132,9 @@ private fun RailItem(
         }
     }
 }
+
+/** Every rail item is this tall, label or no label. */
+private val RailItemHeight = 64.dp
 
 private fun Destination.icon(): ImageVector = when (this) {
     Destination.MEDIA -> Icons.Filled.VideoLibrary
